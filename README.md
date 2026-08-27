@@ -5,10 +5,9 @@ businesses: it plans, creates, approves and publishes social content, then
 helps demonstrate which publications generate commercial activity. Its public
 site is relay.aleyacloud.com.
 
-It is deliberately not a TavisaSuite module. TavisaSuite, goClinicals,
-ClubTrainers and future products interact with Relay only through the versioned
-HTTP API and its documented contracts. They must not import Relay code or share
-its database.
+It is an independent product. Any future external system interacts with Relay
+only through the versioned HTTP API and its documented contracts; it must not
+import Relay code or share its database.
 
 ## Current scope
 
@@ -21,6 +20,12 @@ The first functional release supports Meta only (Facebook Pages and Instagram
 Professional Accounts), text with one image, scheduled publishing, retry
 attempts and auditable outcomes. It does not include a CRM, ads, an inbox,
 Google Business, LinkedIn or TikTok.
+
+## Web application
+
+The product interface lives in `frontend/`: React, TypeScript, Vite, Tailwind
+CSS and Lucide icons. It is served under `/app/` by a dedicated private
+frontend container; Django remains the API and background-work backend.
 
 ## Local setup
 

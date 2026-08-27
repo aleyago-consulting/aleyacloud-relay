@@ -10,10 +10,10 @@
 
 ## Contrato de productos clientes
 
-TavisaSuite, goClinicals, ClubTrainers y futuros productos son clientes de una
-API versionada. No importan código Relay, no comparten su base de datos y no
-pueden seleccionar arbitrariamente un workspace o marca. Las credenciales de
-servicio llevan los scopes y el contexto autorizado.
+Los sistemas externos son clientes de una API versionada. No importan código
+Relay, no comparten su base de datos y no pueden seleccionar arbitrariamente un
+workspace o marca. Las credenciales de servicio llevan los scopes y el contexto
+autorizado.
 
 Una solicitud de aprobación se crea desde la API autenticada para un borrador
 autorizado. Relay devuelve el enlace en texto plano sólo en esa respuesta y

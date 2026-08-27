@@ -2,8 +2,7 @@
 
 Relay runs as independent web and worker processes. It must have its own
 PostgreSQL database, Redis database number/instance, object-storage namespace
-and secrets. Do not point it to data stores shared with TavisaSuite, goClinicals
-or ClubTrainers.
+and secrets. Do not point it to data stores shared with another application.
 
 ## Required environment
 
@@ -50,15 +49,16 @@ roll a production integration to a new version.
 1. Clone this repository into `/srv/apps/relay` (not the static landing path).
 2. Build and start the private stack:
    `sudo docker compose -f docker-compose.production.yml up -d --build`.
-   PostgreSQL and Redis have no host ports; only the web process listens on
-   `127.0.0.1:8010`.
+   PostgreSQL and Redis have no host ports. The Django API listens only on
+   `127.0.0.1:8010`; the React application listens only on `127.0.0.1:8011`.
 3. Run migrations once from the web image:
    `sudo docker compose -f docker-compose.production.yml exec web python manage.py migrate`.
 4. Confirm `web`, `worker` and `beat` are running. Beat dispatches due
    publications each minute; the worker has concurrency 1 for the current VPS.
 5. Put Nginx in front of the web process and enable TLS for
    relay.aleyacloud.com. A plain upstream example is in deploy/nginx/relay.conf.
-   It proxies only to `127.0.0.1:8010`, which is not Internet-exposed.
+   It proxies `/api/` to `127.0.0.1:8010` and `/app/` to `127.0.0.1:8011`;
+   neither port is Internet-exposed.
 6. Check GET /api/v1/health/ through the public hostname.
 
 The public root remains the existing static site in /srv/apps/aleya-relay/public.

@@ -21,12 +21,12 @@ pytestmark = pytest.mark.django_db
 def service_client(tenant: Tenant, brands: list[Brand], scopes: list[str]) -> APIClient:
     Membership.objects.get_or_create(
         workspace=tenant,
-        subject="client:tavisa-suite",
+        subject="client:relay-test",
         defaults={"role": MembershipRole.CONTENT_CREATOR},
     )
     token = jwt.encode(
         {
-            "sub": "client:tavisa-suite",
+            "sub": "client:relay-test",
             "workspace_id": str(tenant.id),
             "brand_ids": [str(brand.id) for brand in brands],
             "scopes": scopes,
@@ -43,8 +43,8 @@ def service_client(tenant: Tenant, brands: list[Brand], scopes: list[str]) -> AP
 
 
 def test_post_creation_is_tenant_scoped_and_idempotent() -> None:
-    tenant = Tenant.objects.create(slug="tavisa-demo", name="Tavisa Demo")
-    brand = Brand.objects.create(workspace=tenant, slug="tavisa", name="Tavisa")
+    tenant = Tenant.objects.create(slug="relay-demo", name="Relay Demo")
+    brand = Brand.objects.create(workspace=tenant, slug="relay", name="Relay Brand")
     client = service_client(tenant, [brand], ["posts:write", "posts:read"])
     url = reverse("post-collection")
     payload = {"brand_id": str(brand.id), "title": "Launch", "body": "Hello from Relay"}
@@ -148,12 +148,12 @@ def test_viewer_cannot_create_a_draft() -> None:
     brand = Brand.objects.create(workspace=tenant, slug="viewer", name="Viewer Brand")
     Membership.objects.create(
         workspace=tenant,
-        subject="client:tavisa-suite",
+        subject="client:relay-test",
         role=MembershipRole.VIEWER,
     )
     token = jwt.encode(
         {
-            "sub": "client:tavisa-suite",
+            "sub": "client:relay-test",
             "workspace_id": str(tenant.id),
             "brand_ids": [str(brand.id)],
             "scopes": ["posts:write"],

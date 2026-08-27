@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "SF Pro Display", ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #162033;
+  --color-brand: #6d5dfc;
+  --color-mint: #24c99a;
+}
+
+html { background: #f7f8fc; }
+body { margin: 0; min-width: 320px; color: var(--color-ink); }
+button { font: inherit; }

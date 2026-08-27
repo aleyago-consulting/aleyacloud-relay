@@ -15,7 +15,7 @@ The current implementation establishes the workflow and security boundary; the
 panel, media delivery, IA assistance and live Meta delivery remain phased work.
 
 No repository, package, database table or synchronous internal call is shared
-with TavisaSuite, goClinicals or ClubTrainers. Those products are API clients.
+with any other product. External systems integrate only through Relay's API.
 
 ## Components
 
