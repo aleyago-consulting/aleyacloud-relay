@@ -16,3 +16,11 @@ secrets/
 *.log
 .DS_Store
 Thumbs.db
+
+# Python bytecode and local virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+.relay-validation/
+.pytest_cache/
+*.egg-info/

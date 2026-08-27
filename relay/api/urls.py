@@ -1,0 +1,45 @@
+from django.urls import path
+
+from relay.api.views import (
+    ApprovalLinkDecisionView,
+    ApprovalLinkView,
+    ApprovalRequestDetailView,
+    MetaOAuthCallbackView,
+    MetaOAuthStartView,
+    PostApprovalView,
+    PostApprovalRequestView,
+    PostCollectionView,
+    PostDetailView,
+    PublicationCollectionView,
+    PublicationDetailView,
+)
+
+urlpatterns = [
+    path("oauth/meta/start/", MetaOAuthStartView.as_view(), name="meta-oauth-start"),
+    path("oauth/meta/callback/", MetaOAuthCallbackView.as_view(), name="meta-oauth-callback"),
+    path("posts/", PostCollectionView.as_view(), name="post-collection"),
+    path("posts/<uuid:post_id>/", PostDetailView.as_view(), name="post-detail"),
+    path("posts/<uuid:post_id>/approve/", PostApprovalView.as_view(), name="post-approval"),
+    path(
+        "posts/<uuid:post_id>/approval-requests/",
+        PostApprovalRequestView.as_view(),
+        name="post-approval-request",
+    ),
+    path("approval-links/<str:token>/", ApprovalLinkView.as_view(), name="approval-link"),
+    path(
+        "approval-links/<str:token>/decision/",
+        ApprovalLinkDecisionView.as_view(),
+        name="approval-link-decision",
+    ),
+    path(
+        "approval-requests/<uuid:approval_request_id>/",
+        ApprovalRequestDetailView.as_view(),
+        name="approval-request-detail",
+    ),
+    path("publications/", PublicationCollectionView.as_view(), name="publication-collection"),
+    path(
+        "publications/<uuid:publication_id>/",
+        PublicationDetailView.as_view(),
+        name="publication-detail",
+    ),
+]

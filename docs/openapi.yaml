@@ -1,0 +1,380 @@
+openapi: 3.1.0
+info:
+  title: Relay API
+  version: 0.1.0
+  description: Provisional workspace- and brand-scoped social publishing API.
+servers:
+  - url: https://relay.aleyacloud.com/api/v1
+paths:
+  /health/:
+    get:
+      operationId: health
+      security: []
+      responses:
+        '200':
+          description: Service is available.
+  /oauth/meta/start/:
+    post:
+      operationId: startMetaOAuth
+      summary: Create a workspace- and brand-bound Meta OAuth authorization URL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [brand_id]
+              properties:
+                brand_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Authorization URL created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [authorization_url]
+                properties:
+                  authorization_url:
+                    type: string
+                    format: uri
+        '503':
+          description: Meta OAuth is not configured.
+  /oauth/meta/callback/:
+    get:
+      operationId: completeMetaOAuth
+      summary: OAuth callback registered with Meta; does not require a Relay client token.
+      security: []
+      parameters:
+        - in: query
+          name: code
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: state
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Meta account and supported channels connected.
+        '400':
+          description: OAuth state is missing, invalid, expired or previously consumed.
+        '502':
+          description: Meta rejected the exchange or discovery request.
+  /posts/:
+    post:
+      operationId: createPostDraft
+      summary: Create a workspace- and brand-scoped draft.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostCreate'
+      responses:
+        '201':
+          description: Draft created.
+        '409':
+          description: Idempotency key already used with different input.
+  /posts/{post_id}/:
+    get:
+      operationId: getPost
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        '200':
+          description: Post in an authorized caller brand.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        '404':
+          description: Not found in an authorized caller brand.
+  /posts/{post_id}/approve/:
+    post:
+      operationId: approvePost
+      summary: Approve a draft for scheduling.
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        '200':
+          description: Post approved or already approved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        '409':
+          description: The post cannot be approved from its current state.
+  /posts/{post_id}/approval-requests/:
+    post:
+      operationId: requestClientApproval
+      summary: Create a single-purpose client approval link for a draft.
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expires_in_days:
+                  type: integer
+                  minimum: 1
+                  maximum: 30
+                  default: 7
+      responses:
+        '201':
+          description: Approval request and its sole plaintext link are returned.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApprovalRequest'
+                  - type: object
+                    required: [approval_url]
+                    properties:
+                      approval_url:
+                        type: string
+                        format: uri
+        '409':
+          description: The post cannot be sent for approval from its current state.
+  /approval-links/{token}/:
+    get:
+      operationId: getApprovalLink
+      summary: Read one active client approval request by its unguessable link token.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ApprovalToken'
+      responses:
+        '200':
+          description: Approval request and the post being reviewed.
+        '404':
+          description: The link is invalid, revoked or expired.
+  /approval-links/{token}/decision/:
+    post:
+      operationId: decideApprovalLink
+      summary: Approve content or request changes using one active approval link.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ApprovalToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalDecisionInput'
+      responses:
+        '200':
+          description: Decision recorded and post state changed.
+        '404':
+          description: The link is invalid, revoked or expired.
+        '409':
+          description: The link was already decided or the post is no longer awaiting approval.
+  /approval-requests/{approval_request_id}/:
+    delete:
+      operationId: revokeApprovalLink
+      summary: Revoke an undecided client approval link.
+      parameters:
+        - $ref: '#/components/parameters/ApprovalRequestId'
+      responses:
+        '204':
+          description: The approval link was revoked.
+        '404':
+          description: The request does not belong to an authorized brand.
+        '409':
+          description: The request has already been revoked or decided.
+  /publications/:
+    post:
+      operationId: schedulePublication
+      summary: Schedule an approved post variant on a channel connection.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicationCreate'
+      responses:
+        '201':
+          description: Publication scheduled.
+        '409':
+          description: Idempotency conflict or invalid resource state.
+  /publications/{publication_id}/:
+    get:
+      operationId: getPublication
+      parameters:
+        - $ref: '#/components/parameters/PublicationId'
+      responses:
+        '200':
+          description: Publication status in an authorized caller brand.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Publication'
+        '404':
+          description: Not found in an authorized caller brand.
+components:
+  securitySchemes:
+    RelayServiceCredential:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema:
+        type: string
+        maxLength: 255
+    PostId:
+      in: path
+      name: post_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PublicationId:
+      in: path
+      name: publication_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ApprovalToken:
+      in: path
+      name: token
+      required: true
+      schema:
+        type: string
+    ApprovalRequestId:
+      in: path
+      name: approval_request_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    State:
+      type: string
+      enum:
+        - DRAFT
+        - PENDING_APPROVAL
+        - APPROVED
+        - SCHEDULED
+        - PUBLISHING
+        - PUBLISHED
+        - FAILED
+        - CANCELLED
+    PostCreate:
+      type: object
+      required: [brand_id, body]
+      properties:
+        brand_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 255
+        body:
+          type: string
+    Post:
+      allOf:
+        - $ref: '#/components/schemas/PostCreate'
+        - type: object
+          required: [id, state, created_at]
+          properties:
+            id:
+              type: string
+              format: uuid
+            state:
+              $ref: '#/components/schemas/State'
+            default_variant_id:
+              type: string
+              format: uuid
+              nullable: true
+            created_at:
+              type: string
+              format: date-time
+    Publication:
+      type: object
+      required: [id, state, scheduled_for]
+      properties:
+        id:
+          type: string
+          format: uuid
+        state:
+          $ref: '#/components/schemas/State'
+        scheduled_for:
+          type: string
+          format: date-time
+        provider_publication_id:
+          type: string
+    PublicationCreate:
+      type: object
+      required: [post_variant_id, channel_connection_id, scheduled_for]
+      properties:
+        post_variant_id:
+          type: string
+          format: uuid
+        channel_connection_id:
+          type: string
+          format: uuid
+        scheduled_for:
+          type: string
+          format: date-time
+    ApprovalDecisionInput:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [APPROVED, CHANGES_REQUESTED]
+        comment:
+          type: string
+          description: Required when decision is CHANGES_REQUESTED.
+        author_label:
+          type: string
+          maxLength: 255
+    ApprovalRequest:
+      type: object
+      required: [id, post_id, expires_at, decision]
+      properties:
+        id:
+          type: string
+          format: uuid
+        post_id:
+          type: string
+          format: uuid
+        expires_at:
+          type: string
+          format: date-time
+        decision:
+          type: string
+          enum: [PENDING, APPROVED, CHANGES_REQUESTED]
+        decided_at:
+          type: string
+          format: date-time
+          nullable: true
+        comments:
+          type: array
+          items:
+            type: object
+            properties:
+              author_label:
+                type: string
+              body:
+                type: string
+              created_at:
+                type: string
+                format: date-time
+security:
+  - RelayServiceCredential: []

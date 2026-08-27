@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: /srv/secrets/relay/production.env
+    volumes:
+      - relay_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - relay_redis_data:/data
+
+  web:
+    build: .
+    image: aleyacloud-relay:latest
+    restart: unless-stopped
+    env_file: /srv/secrets/relay/production.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "127.0.0.1:8010:8000"
+
+  worker:
+    image: aleyacloud-relay:latest
+    restart: unless-stopped
+    env_file: /srv/secrets/relay/production.env
+    command: celery -A config worker --loglevel=INFO --concurrency=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  beat:
+    image: aleyacloud-relay:latest
+    restart: unless-stopped
+    env_file: /srv/secrets/relay/production.env
+    command: celery -A config beat --loglevel=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+volumes:
+  relay_postgres_data:
+  relay_redis_data:
