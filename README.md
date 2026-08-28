@@ -17,9 +17,9 @@ brand voice, UTM attribution and publication metrics. The existing code is not
 yet a releasable implementation of that complete MVP.
 
 The first functional release supports Meta only (Facebook Pages and Instagram
-Professional Accounts), text with one image, scheduled publishing, retry
-attempts and auditable outcomes. It does not include a CRM, ads, an inbox,
-Google Business, LinkedIn or TikTok.
+Professional Accounts), text with one JPEG/PNG image, scheduled publishing,
+retry attempts and auditable outcomes. It does not include a CRM, ads, an
+inbox, Google Business, LinkedIn or TikTok.
 
 ## Web application
 
@@ -50,6 +50,7 @@ scopes claims; Relay supports HS256 during the initial deployment.
 - [Delivery roadmap](ROADMAP.md)
 - [Initial OpenAPI contract](docs/openapi.yaml)
 - [Deployment guide](DEPLOYMENT.md)
+- [Meta activation guide](docs/META-SETUP.md)
 
 ## Guardrails
 

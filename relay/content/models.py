@@ -22,12 +22,20 @@ class Post(TimeStampedUUIDModel):
 
 
 class MediaAsset(TimeStampedUUIDModel):
+    class UploadState(models.TextChoices):
+        PENDING = "PENDING", "Pending upload"
+        READY = "READY", "Ready"
+        FAILED = "FAILED", "Upload failed"
+
     tenant = models.ForeignKey("tenancy.Tenant", on_delete=models.CASCADE, related_name="media_assets")
     brand = models.ForeignKey("tenancy.Brand", on_delete=models.CASCADE, related_name="media_assets")
     storage_key = models.CharField(max_length=1024, unique=True)
     content_type = models.CharField(max_length=255)
     size_bytes = models.PositiveBigIntegerField()
     checksum = models.CharField(max_length=128, blank=True)
+    upload_state = models.CharField(
+        max_length=16, choices=UploadState.choices, default=UploadState.PENDING
+    )
 
 
 class PostVariant(TimeStampedUUIDModel):

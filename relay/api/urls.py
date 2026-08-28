@@ -4,6 +4,9 @@ from relay.api.views import (
     ApprovalLinkDecisionView,
     ApprovalLinkView,
     ApprovalRequestDetailView,
+    ChannelConnectionCollectionView,
+    MediaUploadConfirmView,
+    MediaUploadIntentView,
     MetaOAuthCallbackView,
     MetaOAuthStartView,
     PostApprovalView,
@@ -15,8 +18,11 @@ from relay.api.views import (
 )
 
 urlpatterns = [
+    path("connections/", ChannelConnectionCollectionView.as_view(), name="channel-connection-collection"),
     path("oauth/meta/start/", MetaOAuthStartView.as_view(), name="meta-oauth-start"),
     path("oauth/meta/callback/", MetaOAuthCallbackView.as_view(), name="meta-oauth-callback"),
+    path("media/upload-intents/", MediaUploadIntentView.as_view(), name="media-upload-intent"),
+    path("media/<uuid:media_asset_id>/confirm/", MediaUploadConfirmView.as_view(), name="media-upload-confirm"),
     path("posts/", PostCollectionView.as_view(), name="post-collection"),
     path("posts/<uuid:post_id>/", PostDetailView.as_view(), name="post-detail"),
     path("posts/<uuid:post_id>/approve/", PostApprovalView.as_view(), name="post-approval"),

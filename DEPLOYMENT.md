@@ -44,6 +44,12 @@ https://relay.aleyacloud.com/api/v1/oauth/meta/callback/. Set the currently
 supported Graph API version explicitly in META_GRAPH_VERSION; do not silently
 roll a production integration to a new version.
 
+The operational Meta setup, minimum permissions and controlled first test are
+in [docs/META-SETUP.md](docs/META-SETUP.md). Browser uploads need B2 CORS to
+allow HTTPS requests only from `https://relay.aleyacloud.com`, with `PUT` and
+`HEAD` plus the `Content-Type` header. Keep the bucket private; the browser is
+given only a short-lived, single-object signed URL.
+
 ## Initial delivery
 
 1. Clone this repository into `/srv/apps/relay` (not the static landing path).

@@ -6,7 +6,8 @@ from django.db import IntegrityError, transaction
 
 from relay.audit.models import AuditLog
 from relay.common.models import LifecycleState
-from relay.content.models import Post, PostVariant
+from relay.content.models import MediaAsset, Post, PostVariant
+from relay.content.services import ready_assets_for_post
 from relay.publications.models import Publication
 from relay.social.models import ChannelConnection
 from relay.tenancy.models import Brand, Tenant
@@ -75,7 +76,13 @@ def create_post_draft(
             idempotency_key=idempotency_key,
             request_fingerprint=fingerprint,
         )
-        PostVariant.objects.create(post=post, body=post.body)
+        media_assets = ready_assets_for_post(
+            tenant=tenant,
+            brand=brand,
+            asset_ids=list(payload.get("media_asset_ids", [])),
+        )
+        variant = PostVariant.objects.create(post=post, body=post.body)
+        variant.media_assets.set(media_assets)
         AuditLog.objects.create(
             tenant=tenant,
             brand=brand,
@@ -155,6 +162,9 @@ def schedule_publication(
         raise InvalidSchedule
     if post_variant.post.state != LifecycleState.APPROVED:
         raise InvalidStateTransition
+    media_assets = list(post_variant.media_assets.all())
+    if len(media_assets) != 1 or media_assets[0].upload_state != MediaAsset.UploadState.READY:
+        raise InvalidSchedule
 
     try:
         publication = Publication.objects.create(

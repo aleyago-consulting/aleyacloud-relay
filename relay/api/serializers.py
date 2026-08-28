@@ -1,23 +1,80 @@
 from rest_framework import serializers
 from django.utils import timezone
 
-from relay.content.models import Post
+from relay.content.models import MediaAsset, Post
 from relay.publications.models import Publication
 from relay.approvals.models import ApprovalComment, ApprovalRequest
+from relay.social.models import ChannelConnection
 
 
 class PostCreateSerializer(serializers.Serializer):
     brand_id = serializers.UUIDField()
     title = serializers.CharField(max_length=255, required=False, allow_blank=True)
     body = serializers.CharField(allow_blank=False, trim_whitespace=False)
+    media_asset_ids = serializers.ListField(
+        child=serializers.UUIDField(), required=False, default=list, max_length=1
+    )
+
+
+class MediaUploadIntentSerializer(serializers.Serializer):
+    brand_id = serializers.UUIDField()
+    filename = serializers.CharField(max_length=255)
+    content_type = serializers.ChoiceField(choices=("image/jpeg", "image/png"))
+    size_bytes = serializers.IntegerField(min_value=1, max_value=10 * 1024 * 1024)
+    checksum = serializers.RegexField(
+        r"^[a-fA-F0-9]{64}$", required=False, allow_blank=True, max_length=64
+    )
+
+
+class MediaAssetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MediaAsset
+        fields = (
+            "id",
+            "brand_id",
+            "content_type",
+            "size_bytes",
+            "checksum",
+            "upload_state",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+
+class ChannelConnectionSerializer(serializers.ModelSerializer):
+    provider = serializers.CharField(source="social_account.provider", read_only=True)
+    brand_id = serializers.UUIDField(source="social_account.brand_id", read_only=True)
+
+    class Meta:
+        model = ChannelConnection
+        fields = (
+            "id",
+            "brand_id",
+            "provider",
+            "channel",
+            "provider_channel_id",
+            "display_name",
+            "token_expires_at",
+            "granted_scopes",
+            "is_active",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
 
 
 class PostSerializer(serializers.ModelSerializer):
     default_variant_id = serializers.SerializerMethodField()
+    media_asset_ids = serializers.SerializerMethodField()
 
     def get_default_variant_id(self, post):
         variant = post.variants.order_by("created_at").first()
         return str(variant.id) if variant else None
+
+    def get_media_asset_ids(self, post):
+        variant = post.variants.order_by("created_at").first()
+        return [str(asset_id) for asset_id in variant.media_assets.values_list("id", flat=True)] if variant else []
 
     class Meta:
         model = Post
@@ -27,6 +84,7 @@ class PostSerializer(serializers.ModelSerializer):
             "body",
             "state",
             "default_variant_id",
+            "media_asset_ids",
             "created_at",
             "updated_at",
         )

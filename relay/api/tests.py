@@ -8,7 +8,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from relay.audit.models import AuditLog
-from relay.content.models import Post
+from relay.content.models import MediaAsset, Post
 from relay.common.models import LifecycleState
 from relay.approvals.models import ApprovalRequest
 from relay.social.models import ChannelConnection, SocialAccount
@@ -94,6 +94,15 @@ def test_approved_post_can_be_scheduled_idempotently() -> None:
         provider_channel_id="page-1",
         encrypted_access_token="not-a-real-token",
     )
+    asset = MediaAsset.objects.create(
+        tenant=tenant,
+        brand=brand,
+        storage_key="relay/test/scheduled.jpg",
+        content_type="image/jpeg",
+        size_bytes=42,
+        upload_state=MediaAsset.UploadState.READY,
+    )
+    Post.objects.get(id=post_id).variants.get().media_assets.add(asset)
 
     approved = client.post(reverse("post-approval", kwargs={"post_id": post_id}))
     schedule_payload = {
@@ -120,6 +129,29 @@ def test_approved_post_can_be_scheduled_idempotently() -> None:
     assert repeated.status_code == 200
     assert repeated.data["id"] == created.data["id"]
     assert AuditLog.objects.filter(event_type="publication.scheduled").count() == 1
+
+
+def test_post_rejects_media_from_another_brand() -> None:
+    tenant = Tenant.objects.create(slug="media-owner", name="Media owner")
+    brand = Brand.objects.create(workspace=tenant, slug="main", name="Main")
+    other_brand = Brand.objects.create(workspace=tenant, slug="other", name="Other")
+    asset = MediaAsset.objects.create(
+        tenant=tenant,
+        brand=other_brand,
+        storage_key="relay/test/other.jpg",
+        content_type="image/jpeg",
+        size_bytes=10,
+        upload_state=MediaAsset.UploadState.READY,
+    )
+
+    response = service_client(tenant, [brand], ["posts:write"]).post(
+        reverse("post-collection"),
+        {"brand_id": str(brand.id), "body": "Private media", "media_asset_ids": [str(asset.id)]},
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="other-brand-media",
+    )
+
+    assert response.status_code == 400
 
 
 def test_post_from_another_tenant_is_hidden() -> None:

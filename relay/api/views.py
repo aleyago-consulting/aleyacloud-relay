@@ -11,6 +11,9 @@ from relay.api.serializers import (
     ApprovalDecisionSerializer,
     ApprovalRequestCreateSerializer,
     ApprovalRequestSerializer,
+    ChannelConnectionSerializer,
+    MediaAssetSerializer,
+    MediaUploadIntentSerializer,
     PostCreateSerializer,
     PostSerializer,
     PublicationCreateSerializer,
@@ -36,6 +39,13 @@ from relay.api.services import (
     schedule_publication,
 )
 from relay.content.models import Post, PostVariant
+from relay.content.models import MediaAsset
+from relay.content.services import (
+    InvalidMediaAsset,
+    MediaUploadUnavailable,
+    confirm_media_upload,
+    create_media_upload_intent,
+)
 from relay.publications.models import Publication
 from relay.social.models import ChannelConnection
 from relay.social.crypto import TokenEncryptionError
@@ -66,6 +76,12 @@ class MetaConfigurationResponse(exceptions.APIException):
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     default_detail = "Meta OAuth is not configured."
     default_code = "meta_not_configured"
+
+
+class MediaUploadResponse(exceptions.APIException):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_detail = "Media storage could not complete the requested operation."
+    default_code = "media_storage_unavailable"
 
 
 class InvalidApprovalResponse(exceptions.APIException):
@@ -112,6 +128,8 @@ class PostCollectionView(TenantScopedAPIView):
             )
         except IdempotencyConflict as error:
             raise IdempotencyConflictResponse from error
+        except InvalidMediaAsset as error:
+            raise ValidationError({"media_asset_ids": "Use one ready image from the selected brand."}) from error
 
         response_status = status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
         return Response(PostSerializer(result.post).data, status=response_status)
@@ -126,6 +144,64 @@ class PostDetailView(TenantScopedAPIView):
             Post, id=post_id, tenant=self.get_tenant(), brand_id__in=self.request.user.brand_ids
         )
         return Response(PostSerializer(post).data)
+
+
+class MediaUploadIntentView(TenantScopedAPIView):
+    required_scope = "media:write"
+    required_roles = ("OWNER", "MANAGER", "CONTENT_CREATOR")
+
+    def post(self, request):
+        serializer = MediaUploadIntentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        brand = self.get_brand(serializer.validated_data.pop("brand_id"))
+        try:
+            intent = create_media_upload_intent(
+                tenant=self.get_tenant(),
+                brand=brand,
+                subject=request.user.subject,
+                **serializer.validated_data,
+            )
+        except InvalidMediaAsset as error:
+            raise ValidationError("The image must be a JPEG or PNG no larger than 10 MB.") from error
+        except MediaUploadUnavailable as error:
+            raise MediaUploadResponse from error
+        return Response(
+            {
+                "asset": MediaAssetSerializer(intent.asset).data,
+                "upload_url": intent.upload_url,
+                "upload_headers": {
+                    "Content-Type": intent.asset.content_type,
+                    **(
+                        {"x-amz-meta-sha256": intent.asset.checksum}
+                        if intent.asset.checksum
+                        else {}
+                    ),
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class MediaUploadConfirmView(TenantScopedAPIView):
+    required_scope = "media:write"
+    required_roles = ("OWNER", "MANAGER", "CONTENT_CREATOR")
+
+    def post(self, request, media_asset_id):
+        asset = get_object_or_404(
+            MediaAsset,
+            id=media_asset_id,
+            tenant=self.get_tenant(),
+            brand_id__in=request.user.brand_ids,
+        )
+        try:
+            asset = confirm_media_upload(
+                asset=asset, tenant=self.get_tenant(), subject=request.user.subject
+            )
+        except InvalidMediaAsset as error:
+            raise ValidationError("The uploaded object does not match the requested image.") from error
+        except MediaUploadUnavailable as error:
+            raise MediaUploadResponse from error
+        return Response(MediaAssetSerializer(asset).data)
 
 
 class PostApprovalView(TenantScopedAPIView):
@@ -308,6 +384,22 @@ class MetaOAuthStartView(TenantScopedAPIView):
         except (MetaConfigurationError, TokenEncryptionError) as error:
             raise MetaConfigurationResponse from error
         return Response({"authorization_url": authorization.authorization_url}, status=status.HTTP_201_CREATED)
+
+
+class ChannelConnectionCollectionView(TenantScopedAPIView):
+    required_scope = "connections:read"
+    required_roles = ("OWNER", "MANAGER", "CONTENT_CREATOR", "CLIENT_APPROVER", "VIEWER")
+
+    def get(self, request):
+        queryset = ChannelConnection.objects.select_related("social_account").filter(
+            social_account__tenant=self.get_tenant(),
+            social_account__brand_id__in=request.user.brand_ids,
+        )
+        brand_id = request.query_params.get("brand_id")
+        if brand_id:
+            brand = self.get_brand(brand_id)
+            queryset = queryset.filter(social_account__brand=brand)
+        return Response(ChannelConnectionSerializer(queryset.order_by("display_name"), many=True).data)
 
 
 class MetaOAuthCallbackView(APIView):

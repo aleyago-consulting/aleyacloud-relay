@@ -12,7 +12,7 @@ Relay is a multi-brand agency workflow, not a single-content scheduler. Its
 foundation has Workspace, Brand and Membership authorization; approval links,
 brand voice, UTM attribution and publication metrics are first-class domains.
 The current implementation establishes the workflow and security boundary; the
-panel, media delivery, IA assistance and live Meta delivery remain phased work.
+panel, IA assistance and live Meta activation remain phased work.
 
 No repository, package, database table or synchronous internal call is shared
 with any other product. External systems integrate only through Relay's API.
@@ -86,8 +86,11 @@ tenant. Celery finds due rows and a worker atomically claims one before changing
 it to PUBLISHING. Every Meta request creates a PublicationAttempt. Transient
 failures retry with bounded exponential backoff; permanent errors end as FAILED.
 Provider responses are normalized and secrets are never persisted. The delivery
-path accepts exactly one image and supports Facebook Page photos and Instagram
-Professional image publication through a Relay-controlled media URL.
+path accepts exactly one ready JPEG/PNG image and supports Facebook Page photos
+and Instagram Professional image publication through a Relay-controlled media
+URL. A browser receives a short-lived B2 upload URL for one opaque object key,
+then Relay verifies the stored object before it can be attached to a post or
+scheduled.
 
 The final implementation should use row locking/conditional updates to prevent
 double publication. Celery is a delivery mechanism, not the source of truth:

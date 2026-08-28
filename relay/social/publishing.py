@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from time import sleep
 from typing import Any
 
 import httpx
@@ -41,10 +42,12 @@ class MetaPublishingClient:
                     f"/{connection.provider_channel_id}/media",
                     {"image_url": image_url, "caption": body, "access_token": access_token},
                 )
+                creation_id = self._id(container)
+                self._wait_for_instagram_container(client, creation_id, access_token)
                 published = self._post(
                     client,
                     f"/{connection.provider_channel_id}/media_publish",
-                    {"creation_id": self._id(container), "access_token": access_token},
+                    {"creation_id": creation_id, "access_token": access_token},
                 )
                 return MetaPublishedContent(provider_publication_id=self._id(published))
         raise MetaPublishPermanentError("Unsupported Meta channel.")
@@ -62,6 +65,34 @@ class MetaPublishingClient:
             return response.json()
         except ValueError as error:
             raise MetaPublishPermanentError("Meta returned an invalid publication response.") from error
+
+    def _wait_for_instagram_container(
+        self, client: httpx.Client, creation_id: str, access_token: str
+    ) -> None:
+        """Instagram creation is asynchronous; never publish an unfinished container."""
+        for attempt in range(5):
+            try:
+                response = client.get(
+                    f"{self.config.graph_url}/{creation_id}",
+                    params={"fields": "status_code", "access_token": access_token},
+                )
+            except httpx.RequestError as error:
+                raise MetaPublishTransientError("Meta could not check the Instagram media.") from error
+            if response.status_code == 429 or response.status_code >= 500:
+                raise MetaPublishTransientError("Meta temporarily rejected the Instagram media check.")
+            if response.is_error:
+                raise MetaPublishPermanentError("Meta rejected the Instagram media container.")
+            try:
+                status = str(response.json().get("status_code", ""))
+            except ValueError as error:
+                raise MetaPublishPermanentError("Meta returned an invalid Instagram media status.") from error
+            if status == "FINISHED":
+                return
+            if status in {"ERROR", "EXPIRED"}:
+                raise MetaPublishPermanentError("Meta could not process the Instagram image.")
+            if attempt < 4:
+                sleep(2)
+        raise MetaPublishTransientError("Instagram media is still processing; Relay will retry.")
 
     @staticmethod
     def _id(payload: dict[str, Any]) -> str:

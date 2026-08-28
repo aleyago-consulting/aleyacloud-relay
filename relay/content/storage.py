@@ -33,3 +33,19 @@ def presigned_download_url(storage_key: str) -> str:
         Params={"Bucket": settings.B2_BUCKET, "Key": storage_key},
         ExpiresIn=settings.RELAY_MEDIA_URL_TTL_SECONDS,
     )
+
+
+def presigned_upload_url(storage_key: str, content_type: str, checksum: str = "") -> str:
+    """Create a short-lived, single-object browser upload URL for private B2."""
+    params = {
+        "Bucket": settings.B2_BUCKET,
+        "Key": storage_key,
+        "ContentType": content_type,
+    }
+    if checksum:
+        params["Metadata"] = {"sha256": checksum}
+    return b2_client().generate_presigned_url(
+        "put_object",
+        Params=params,
+        ExpiresIn=settings.RELAY_MEDIA_URL_TTL_SECONDS,
+    )

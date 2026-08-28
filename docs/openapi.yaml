@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Relay API
   version: 0.1.0
-  description: Provisional workspace- and brand-scoped social publishing API.
+  description: Initial workspace- and brand-scoped social publishing API.
 servers:
   - url: https://relay.aleyacloud.com/api/v1
 paths:
@@ -13,6 +13,26 @@ paths:
       responses:
         '200':
           description: Service is available.
+  /connections/:
+    get:
+      operationId: listChannelConnections
+      summary: List Meta channel connections visible in an authorized brand.
+      parameters:
+        - in: query
+          name: brand_id
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Connections without provider credentials.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChannelConnection'
   /oauth/meta/start/:
     post:
       operationId: startMetaOAuth
@@ -65,6 +85,42 @@ paths:
           description: OAuth state is missing, invalid, expired or previously consumed.
         '502':
           description: Meta rejected the exchange or discovery request.
+  /media/upload-intents/:
+    post:
+      operationId: createMediaUploadIntent
+      summary: Create one B2 direct-upload URL for a brand image.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaUploadIntentCreate'
+      responses:
+        '201':
+          description: Upload URL and opaque Relay asset ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaUploadIntent'
+        '503':
+          description: Object storage is unavailable or not configured.
+  /media/{media_asset_id}/confirm/:
+    post:
+      operationId: confirmMediaUpload
+      summary: Verify a direct B2 upload before it can be used in a post.
+      parameters:
+        - $ref: '#/components/parameters/MediaAssetId'
+      responses:
+        '200':
+          description: Verified image asset.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+        '400':
+          description: The object differs from the requested image.
+        '503':
+          description: Object storage could not be checked.
   /posts/:
     post:
       operationId: createPostDraft
@@ -262,6 +318,13 @@ components:
       schema:
         type: string
         format: uuid
+    MediaAssetId:
+      in: path
+      name: media_asset_id
+      required: true
+      schema:
+        type: string
+        format: uuid
   schemas:
     State:
       type: string
@@ -286,6 +349,94 @@ components:
           maxLength: 255
         body:
           type: string
+        media_asset_ids:
+          type: array
+          maxItems: 1
+          items:
+            type: string
+            format: uuid
+    MediaAsset:
+      type: object
+      required: [id, brand_id, content_type, size_bytes, upload_state]
+      properties:
+        id:
+          type: string
+          format: uuid
+        brand_id:
+          type: string
+          format: uuid
+        content_type:
+          type: string
+          enum: [image/jpeg, image/png]
+        size_bytes:
+          type: integer
+        checksum:
+          type: string
+        upload_state:
+          type: string
+          enum: [PENDING, READY, FAILED]
+    MediaUploadIntentCreate:
+      type: object
+      required: [brand_id, filename, content_type, size_bytes]
+      properties:
+        brand_id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        content_type:
+          type: string
+          enum: [image/jpeg, image/png]
+        size_bytes:
+          type: integer
+          minimum: 1
+          maximum: 10485760
+        checksum:
+          type: string
+          description: Optional lowercase SHA-256 of the file.
+    MediaUploadIntent:
+      type: object
+      required: [asset, upload_url, upload_headers]
+      properties:
+        asset:
+          $ref: '#/components/schemas/MediaAsset'
+        upload_url:
+          type: string
+          format: uri
+        upload_headers:
+          type: object
+          additionalProperties:
+            type: string
+    ChannelConnection:
+      type: object
+      required: [id, brand_id, provider, channel, provider_channel_id, is_active]
+      properties:
+        id:
+          type: string
+          format: uuid
+        brand_id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum: [META]
+        channel:
+          type: string
+          enum: [META_FACEBOOK_PAGE, META_INSTAGRAM_BUSINESS_ACCOUNT]
+        provider_channel_id:
+          type: string
+        display_name:
+          type: string
+        token_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        granted_scopes:
+          type: array
+          items:
+            type: string
+        is_active:
+          type: boolean
     Post:
       allOf:
         - $ref: '#/components/schemas/PostCreate'
