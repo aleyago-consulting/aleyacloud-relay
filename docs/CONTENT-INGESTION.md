@@ -11,7 +11,7 @@ Workspace y Brand** y con sólo estos scopes:
 No incluye permisos para aprobar, solicitar aprobación, programar, publicar,
 consultar conexiones sociales ni cambiar de marca.
 
-## Preparación de TavisaSuite y GoClinicals
+## Preparación de las marcas editoriales
 
 En el servidor, como `root`, ejecutar una vez tras desplegar esta versión:
 
@@ -21,12 +21,13 @@ docker compose -f docker-compose.production.yml exec web python manage.py \
   provision_content_workspace \
   --workspace-slug alya-content \
   --workspace-name "Alya Content" \
+  --brand aleyacloud:AleyaCloud \
   --brand tavisasuite:TavisaSuite \
   --brand goclinicals:GoClinicals \
   --owner-username jorge.llavata
 ```
 
-Esto crea dos marcas distintas dentro del Workspace editorial. No conecta Meta,
+Esto crea tres marcas distintas dentro del Workspace editorial. No conecta Meta,
 no importa datos desde esos productos y no crea publicaciones.
 
 ## Credenciales de las tareas
@@ -60,6 +61,16 @@ credenciales activas. La siguiente evolución, cuando haga falta revocación
 individual, será un registro de credenciales con identificador y digest.
 
 ## Contrato de una tarea de contenido
+
+Las guías que se entregan a las tareas están separadas de esta documentación
+administrativa:
+
+- [AleyaCloud](content-tasks/ALEYA-CLOUD.md)
+- [TavisaSuite](content-tasks/TAVISASUITE.md)
+- [GoClinicals](content-tasks/GOCLINICALS.md)
+
+Se entrega a cada tarea solamente su guía de marca, junto con el texto y la
+imagen. Este documento y las credenciales quedan en administración.
 
 La tarea debe recibir texto, título opcional y una imagen JPG o PNG de hasta
 10 MiB. No debe llamar a endpoints de aprobación o publicación.
