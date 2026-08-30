@@ -139,6 +139,16 @@ def panel_context(request, *, user=None) -> dict:
             "display_name": user.get_full_name() or user.get_username(),
         },
         "workspace": {"id": str(workspace.id), "name": workspace.name},
+        "workspaces": [
+            {"id": str(item.id), "name": item.name}
+            for item in Tenant.objects.filter(
+                memberships__subject=principal.subject,
+                memberships__is_active=True,
+                is_active=True,
+            )
+            .distinct()
+            .order_by("name")
+        ],
         "role": membership.role,
         "scopes": sorted(principal.scopes),
         "brands": [
@@ -187,6 +197,26 @@ class PanelLogoutView(APIView):
 
 class PanelMeView(APIView):
     def get(self, request):
+        return Response(panel_context(request))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PanelWorkspaceView(APIView):
+    """Switch the authenticated browser to one of its own workspaces."""
+
+    def post(self, request):
+        workspace_id = request.data.get("workspace_id")
+        if not workspace_id:
+            raise ValidationError({"workspace_id": "This field is required."})
+        membership = Membership.objects.filter(
+            workspace_id=workspace_id,
+            subject=request.user.subject,
+            is_active=True,
+            workspace__is_active=True,
+        ).first()
+        if membership is None:
+            raise exceptions.NotFound()
+        request.session["relay_workspace_id"] = str(membership.workspace_id)
         return Response(panel_context(request))
 
 

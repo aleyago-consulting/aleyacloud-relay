@@ -99,6 +99,41 @@ button { font: inherit; }
 #root [class*="text-lime-700"] { color: #397b06 !important; }
 #root [class*="border-lime-200"] { border-color: #d5eda6 !important; }
 #root [class*="bg-lime-50"] { background-color: #f5ffe3 !important; }
+.workspace-switcher {
+  position: fixed;
+  z-index: 40;
+  top: 1rem;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .35rem .5rem .35rem .7rem;
+  border: 1px solid rgba(180, 215, 255, .36);
+  border-radius: .65rem;
+  color: #d4e6ff;
+  background: rgba(5, 28, 61, .75);
+  box-shadow: 0 10px 22px rgba(1, 14, 36, .16);
+  backdrop-filter: blur(12px);
+}
+.workspace-switcher span {
+  font-size: .63rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.workspace-switcher select {
+  max-width: 11rem;
+  padding: .32rem .55rem;
+  border: 0;
+  border-radius: .45rem;
+  color: white;
+  font: inherit;
+  font-size: .75rem;
+  font-weight: 700;
+  background: rgba(83, 149, 239, .28);
+  outline: 0;
+}
+@media (min-width: 1024px) { .workspace-switcher { left: 18.8rem; } }
 
 /* Sign-in uses the same light-over-blue visual language. */
 #root > main.min-h-screen {
