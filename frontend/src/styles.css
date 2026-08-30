@@ -133,6 +133,21 @@ button { font: inherit; }
   background: rgba(83, 149, 239, .28);
   outline: 0;
 }
+.context-switcher output {
+  position: absolute;
+  top: calc(100% + .45rem);
+  right: 0;
+  width: max-content;
+  max-width: 20rem;
+  padding: .5rem .65rem;
+  border: 1px solid #fecdd3;
+  border-radius: .5rem;
+  color: #be123c;
+  font-size: .72rem;
+  font-weight: 700;
+  background: #fff1f2;
+  box-shadow: 0 8px 18px rgba(136, 19, 55, .12);
+}
 /* The old brand-only field lives in the same header location; the unified
    selector replaces it rather than adding a second control. */
 #root > div.min-h-screen > main > header > div:last-child > div.relative { display: none; }

@@ -265,17 +265,23 @@ function ContextSwitcher({
   changed: (context: Context) => void;
 }) {
   const selectedValue = `${context.workspace.id}:${context.selected_brand_id ?? ""}`;
+  const [error, setError] = useState("");
   return (
     <label className="context-switcher">
       <span>Marca</span>
       <select
         value={selectedValue}
-        onChange={(event) => {
+        onChange={async (event) => {
           const [workspaceId, brandId] = event.target.value.split(":");
-          void api<Context>("/panel/workspace/", {
-            method: "POST",
-            body: JSON.stringify({ workspace_id: workspaceId, brand_id: brandId }),
-          }).then(changed);
+          setError("");
+          try {
+            changed(await api<Context>("/panel/workspace/", {
+              method: "POST",
+              body: JSON.stringify({ workspace_id: workspaceId, brand_id: brandId }),
+            }));
+          } catch (reason) {
+            setError(reason instanceof Error ? reason.message : "No se ha podido cambiar la marca.");
+          }
         }}
       >
         {context.workspaces.map((workspace) => <optgroup key={workspace.id} label={workspace.name}>
@@ -286,6 +292,7 @@ function ContextSwitcher({
           ))}
         </optgroup>)}
       </select>
+      {error && <output>{error}</output>}
     </label>
   );
 }
@@ -293,7 +300,13 @@ function ContextSwitcher({
 export function App() {
   const [context, setContext] = useState<Context | null>(null);
   const [loading, setLoading] = useState(true);
-  useEffect(() => { api<Context>("/panel/me/").then(setContext).catch(() => undefined).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    api("/panel/csrf/")
+      .then(() => api<Context>("/panel/me/"))
+      .then(setContext)
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
+  }, []);
   if (loading) return <Loading label="Abriendo Relay…" />;
   if (!context) return <Login loggedIn={setContext} />;
   return <>
