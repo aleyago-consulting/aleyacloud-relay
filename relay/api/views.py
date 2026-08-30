@@ -1,7 +1,7 @@
 from uuid import UUID
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from datetime import timedelta
-from django.db.models import Count
+from django.db.models import Count, Prefetch
 from django.db.models.functions import TruncDate
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -133,6 +133,21 @@ def panel_context(request, *, user=None) -> dict:
         workspace=workspace, subject=principal.subject, is_active=True
     )
     user = request._request.user
+    brands = list(Brand.objects.filter(id__in=principal.brand_ids).order_by("name"))
+    selected_brand_id = request.session.get("relay_brand_id")
+    active_brand = next((brand for brand in brands if str(brand.id) == selected_brand_id), None)
+    if active_brand is None and brands:
+        active_brand = brands[0]
+        request.session["relay_brand_id"] = str(active_brand.id)
+
+    workspaces = Tenant.objects.filter(
+        memberships__subject=principal.subject,
+        memberships__is_active=True,
+        is_active=True,
+    ).prefetch_related(
+        Prefetch("brands", queryset=Brand.objects.filter(is_active=True).order_by("name"))
+    ).distinct().order_by("name")
+
     return {
         "user": {
             "username": user.get_username(),
@@ -140,20 +155,19 @@ def panel_context(request, *, user=None) -> dict:
         },
         "workspace": {"id": str(workspace.id), "name": workspace.name},
         "workspaces": [
-            {"id": str(item.id), "name": item.name}
-            for item in Tenant.objects.filter(
-                memberships__subject=principal.subject,
-                memberships__is_active=True,
-                is_active=True,
-            )
-            .distinct()
-            .order_by("name")
+            {
+                "id": str(item.id),
+                "name": item.name,
+                "brands": [{"id": str(brand.id), "name": brand.name} for brand in item.brands.all()],
+            }
+            for item in workspaces
         ],
+        "selected_brand_id": str(active_brand.id) if active_brand else None,
         "role": membership.role,
         "scopes": sorted(principal.scopes),
         "brands": [
             {"id": str(brand.id), "name": brand.name, "timezone": brand.timezone}
-            for brand in Brand.objects.filter(id__in=principal.brand_ids).order_by("name")
+            for brand in brands
         ],
     }
 
@@ -206,6 +220,7 @@ class PanelWorkspaceView(APIView):
 
     def post(self, request):
         workspace_id = request.data.get("workspace_id")
+        brand_id = request.data.get("brand_id")
         if not workspace_id:
             raise ValidationError({"workspace_id": "This field is required."})
         membership = Membership.objects.filter(
@@ -216,7 +231,15 @@ class PanelWorkspaceView(APIView):
         ).first()
         if membership is None:
             raise exceptions.NotFound()
+        if brand_id and not Brand.objects.filter(
+            id=brand_id, workspace=membership.workspace, is_active=True
+        ).exists():
+            raise exceptions.NotFound()
         request.session["relay_workspace_id"] = str(membership.workspace_id)
+        if brand_id:
+            request.session["relay_brand_id"] = str(brand_id)
+        else:
+            request.session.pop("relay_brand_id", None)
         return Response(panel_context(request))
 
 
