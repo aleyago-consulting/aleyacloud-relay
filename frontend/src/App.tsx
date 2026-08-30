@@ -257,31 +257,18 @@ function Panel({ context, logout }: { context: Context; logout: () => Promise<vo
   return <div className="min-h-screen bg-[#eef1f6]"><aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-white/5 bg-[#081120] text-white lg:block"><div className="flex h-20 items-center gap-3 border-b border-white/10 px-5"><BrandMark /><div><p className="font-bold tracking-tight">Relay</p><p className="text-[10px] font-semibold uppercase tracking-[.12em] text-slate-400">Control social</p></div></div><div className="p-4"><p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[.14em] text-slate-500">Espacio de trabajo</p><nav className="space-y-1">{nav.map((item) => { const Icon = item.icon; return <button onClick={() => setPage(item.id)} key={item.id} className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition ${page === item.id ? "bg-[#ceff3f] text-[#07101f] shadow-[0_5px_15px_rgba(206,255,63,.14)]" : "text-slate-400 hover:bg-white/8 hover:text-white"}`}><Icon size={18} />{item.label}{page === item.id && <ChevronRight className="ml-auto" size={15} />}</button>; })}</nav></div><div className="absolute inset-x-4 bottom-4 rounded-xl border border-white/10 bg-white/[.045] p-4"><p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#ceff3f]">{context.workspace.name}</p><div className="mt-3 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-lg bg-white/10 text-xs font-bold">{initials(context.user.display_name)}</span><p className="truncate text-sm font-semibold">{context.user.display_name}</p></div><button onClick={() => void logout()} className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white"><LogOut size={14} />Cerrar sesión</button></div></aside><main className="lg:ml-72"><header className="flex min-h-20 items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 lg:px-8"><div className="flex items-center gap-3"><BrandMark size="h-9 w-9 lg:hidden" /><div className="hidden items-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400 xl:flex"><Search size={16} /><span className="ml-2 min-w-56">Buscar contenido…</span><kbd className="ml-5 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px]">⌘ K</kbd></div></div><div className="flex items-center gap-3"><button className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50" aria-label="Notificaciones"><Bell size={17} /></button><div className="relative"><select value={brand.id} onChange={(event) => setBrandId(event.target.value)} className="appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-9 text-sm font-semibold text-slate-700 outline-none">{context.brands.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select><ChevronDown className="pointer-events-none absolute right-2 top-2.5 text-slate-500" size={15} /></div><button onClick={() => setComposer(true)} className="flex items-center gap-2 rounded-lg bg-[#0a1425] px-4 py-2.5 text-sm font-semibold text-[#ceff3f] shadow-lg shadow-slate-200"><Plus size={17} />Nueva publicación</button></div></header><div className="mx-auto max-w-[1500px] p-5 lg:p-8"><div className="mb-7 flex items-end justify-between"><div><div className="flex items-center gap-2 text-xs font-medium text-slate-500"><span>{context.workspace.name}</span><ChevronRight size={13} /><span>{brand.name}</span></div><h1 className="mt-2 text-3xl font-bold tracking-tight text-[#081120]">{pageTitle}</h1><p className="mt-1.5 text-sm text-slate-500">Datos operativos del espacio de trabajo actual.</p></div><div className="hidden items-center gap-2 rounded-lg border border-lime-200 bg-lime-50 px-3 py-2 text-xs font-semibold text-lime-800 md:flex"><Sparkles size={15} />Relay está listo para publicar</div></div>{error && <div className="mb-6 flex items-center gap-2 rounded-xl bg-rose-50 p-4 text-sm text-rose-700"><CircleAlert size={18} />{error}</div>}{screen}</div></main>{composer && <Composer brand={brand} connections={connections} close={() => setComposer(false)} saved={refresh} />}</div>;
 }
 
-function ContextSwitcher({
-  context,
-  changed,
-}: {
-  context: Context;
-  changed: (context: Context) => void;
-}) {
+function ContextSwitcher({ context }: { context: Context }) {
   const selectedValue = `${context.workspace.id}:${context.selected_brand_id ?? ""}`;
-  const [error, setError] = useState("");
   return (
     <label className="context-switcher">
       <span>Marca</span>
       <select
         value={selectedValue}
-        onChange={async (event) => {
+        onChange={(event) => {
           const [workspaceId, brandId] = event.target.value.split(":");
-          setError("");
-          try {
-            changed(await api<Context>("/panel/workspace/", {
-              method: "POST",
-              body: JSON.stringify({ workspace_id: workspaceId, brand_id: brandId }),
-            }));
-          } catch (reason) {
-            setError(reason instanceof Error ? reason.message : "No se ha podido cambiar la marca.");
-          }
+          window.location.assign(
+            `/api/v1/panel/workspace/?workspace_id=${encodeURIComponent(workspaceId)}&brand_id=${encodeURIComponent(brandId)}`,
+          );
         }}
       >
         {context.workspaces.map((workspace) => <optgroup key={workspace.id} label={workspace.name}>
@@ -292,7 +279,6 @@ function ContextSwitcher({
           ))}
         </optgroup>)}
       </select>
-      {error && <output>{error}</output>}
     </label>
   );
 }
@@ -310,7 +296,7 @@ export function App() {
   if (loading) return <Loading label="Abriendo Relay…" />;
   if (!context) return <Login loggedIn={setContext} />;
   return <>
-    <ContextSwitcher context={context} changed={setContext} />
+    <ContextSwitcher context={context} />
     <Panel key={context.workspace.id} context={context} logout={async () => { await api("/panel/logout/", { method: "POST" }); setContext(null); }} />
   </>;
 }
