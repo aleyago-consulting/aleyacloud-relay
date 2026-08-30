@@ -34,16 +34,13 @@ precios, disponibilidad, enlaces ni afirmaciones sujetas a verificación.
 
 ## Ejecución en Relay
 
-El entorno autorizado entrega `RELAY_API_TOKEN` y `RELAY_BRAND_ID`; no pedirlos
-ni escribirlos en mensajes, archivos o resultados. Usarlos sólo durante la
-ejecución:
+Usar únicamente el cliente local autorizado con el perfil `goclinicals`. No
+pedir, mostrar ni extraer tokens. El cliente cifra el perfil localmente y
+realiza la subida de imagen y creación del borrador.
 
-1. Crear la intención en `POST /api/v1/media/upload-intents/` con la imagen,
-   `brand_id` y su SHA-256.
-2. Subir el archivo mediante `PUT` a la URL firmada recibida.
-3. Confirmar el activo con `POST /api/v1/media/{asset_id}/confirm/`.
-4. Crear el borrador mediante `POST /api/v1/posts/`, con una
-   `Idempotency-Key` nueva, título opcional, texto y el `asset_id`.
+Ejecutar `tools/relay-task-vault.ps1` con `-Action Submit -Profile goclinicals`,
+el archivo de imagen y el texto recibido (preferiblemente mediante `-BodyFile`
+para conservar saltos de línea).
 
 No llamar a ningún endpoint de aprobación, publicación o programación.
 

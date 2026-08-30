@@ -60,6 +60,43 @@ por ello debe tratarse como operación de emergencia y reemitirse las
 credenciales activas. La siguiente evolución, cuando haga falta revocación
 individual, será un registro de credenciales con identificador y digest.
 
+## Bóveda local de tareas (Windows)
+
+Para que una tarea no reciba el token en el chat, Relay incluye el cliente
+local [`tools/relay-task-vault.ps1`](../tools/relay-task-vault.ps1). Guarda
+cada perfil cifrado con DPAPI de Windows y con una ACL privada para el usuario
+de Windows actual. El token no se imprime al usar el perfil.
+
+Después de emitir un token en el servidor, copiarlo directamente desde el
+terminal y guardarlo localmente; nunca pegarlo aquí. Se necesita el UUID de la
+marca que mostró `provision_content_workspace`.
+
+```powershell
+# En el equipo Windows, una vez por perfil. El script solicita el token de
+# forma oculta y lo cifra en %LOCALAPPDATA%\AleyaCloud\Relay\TaskSecrets.
+& 'C:\Users\Jorge\.codex\worktrees\0201\AleyaCloud\tools\relay-task-vault.ps1' `
+  -Action Set -Profile tavisasuite -BrandId 'UUID-DE-TAVISASUITE'
+
+& 'C:\Users\Jorge\.codex\worktrees\0201\AleyaCloud\tools\relay-task-vault.ps1' `
+  -Action Set -Profile goclinicals -BrandId 'UUID-DE-GOCLINICALS'
+
+& 'C:\Users\Jorge\.codex\worktrees\0201\AleyaCloud\tools\relay-task-vault.ps1' `
+  -Action Set -Profile aleyacloud -BrandId 'UUID-DE-ALEYACLOUD'
+```
+
+Comprobar un perfil sin revelar el token:
+
+```powershell
+& 'C:\Users\Jorge\.codex\worktrees\0201\AleyaCloud\tools\relay-task-vault.ps1' `
+  -Action Status -Profile tavisasuite
+```
+
+La cuenta de Windows es el límite de la bóveda: todas las tareas locales de
+esa misma cuenta podrían invocar el cliente. La separación efectiva se logra
+con un token diferente y limitado a una sola marca por perfil. No ejecutar
+dos tareas de perfiles diferentes en paralelo hasta disponer de una bóveda con
+identidad de tarea gestionada externamente.
+
 ## Contrato de una tarea de contenido
 
 Las guías que se entregan a las tareas están separadas de esta documentación
@@ -75,12 +112,10 @@ imagen. Este documento y las credenciales quedan en administración.
 La tarea debe recibir texto, título opcional y una imagen JPG o PNG de hasta
 10 MiB. No debe llamar a endpoints de aprobación o publicación.
 
-1. `POST /api/v1/media/upload-intents/` con `brand_id`, nombre, tipo, tamaño y
-   SHA-256; autenticado con `Authorization: Bearer <token>`.
-2. Realiza `PUT` de la imagen en la URL firmada que devuelve Relay.
-3. `POST /api/v1/media/{asset_id}/confirm/`.
-4. `POST /api/v1/posts/` con `brand_id`, `title`, `body`, `media_asset_ids` y
-   una cabecera `Idempotency-Key` única.
+1. Usa el cliente de bóveda con el perfil asignado; éste crea la intención de
+   subida, realiza el `PUT` firmado, confirma el activo y crea el post.
+2. El cliente llama únicamente a los endpoints de multimedia y borradores con
+   una `Idempotency-Key` nueva.
 
 El último paso crea siempre un `DRAFT`. Relay registra el actor técnico en su
 auditoría y el borrador queda listo para revisión humana en el panel.
