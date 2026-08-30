@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, get_user_model, login, logout
 from datetime import timedelta
 from django.db.models import Count, Prefetch
 from django.db.models.functions import TruncDate
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
@@ -637,10 +637,8 @@ class MetaOAuthCallbackView(APIView):
             raise MetaConfigurationResponse from error
         except MetaProviderError as error:
             raise MetaConnectionResponse from error
-        return Response(
-            {
-                "social_account_id": str(account.id),
-                "provider": account.provider,
-                "connection_count": account.channel_connections.count(),
-            }
-        )
+        # OAuth is a browser journey. Return the user to the selected brand
+        # instead of exposing an implementation JSON response after Meta.
+        request.session["relay_workspace_id"] = str(account.tenant_id)
+        request.session["relay_brand_id"] = str(account.brand_id)
+        return redirect("/app/?meta=connected")
