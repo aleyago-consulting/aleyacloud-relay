@@ -8,6 +8,7 @@ from django.utils import timezone
 from relay.audit.models import AuditLog
 from relay.common.models import LifecycleState
 from relay.content.delivery import MediaDeliveryUnavailable, publishable_image_url
+from relay.content.services import ordered_media_assets
 from relay.publications.models import Publication, PublicationAttempt
 from relay.social.crypto import TokenEncryptionError, decrypt_token
 from relay.social.meta import MetaConfigurationError
@@ -19,7 +20,9 @@ from relay.social.publishing import (
 
 
 class Publisher(Protocol):
-    def publish_image(self, *, connection, access_token: str, body: str, image_url: str): ...
+    def publish_images(
+        self, *, connection, access_token: str, body: str, image_urls: list[str]
+    ): ...
 
 
 def _retry_delay(attempt_number: int) -> timedelta:
@@ -48,14 +51,16 @@ def publish_due_publication(*, publication_id, publisher: Publisher | None = Non
         publication.save(update_fields=("state", "updated_at"))
 
     try:
-        media = list(publication.post_variant.media_assets.all())
-        if len(media) != 1:
-            raise MetaPublishPermanentError("The MVP requires exactly one image asset.")
-        result = (publisher or MetaPublishingClient()).publish_image(
+        media = ordered_media_assets(variant=publication.post_variant)
+        if not 1 <= len(media) <= 10:
+            raise MetaPublishPermanentError(
+                "A publication must contain between one and ten image assets."
+            )
+        result = (publisher or MetaPublishingClient()).publish_images(
             connection=publication.channel_connection,
             access_token=decrypt_token(publication.channel_connection.encrypted_access_token),
             body=publication.post_variant.body,
-            image_url=publishable_image_url(media[0]),
+            image_urls=[publishable_image_url(asset) for asset in media],
         )
     except MetaPublishTransientError as error:
         return _finish_failure(publication, attempt, error, transient=True)

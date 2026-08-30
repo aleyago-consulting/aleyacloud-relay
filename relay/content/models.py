@@ -42,4 +42,7 @@ class PostVariant(TimeStampedUUIDModel):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="variants")
     body = models.TextField(blank=True)
     media_assets = models.ManyToManyField(MediaAsset, related_name="post_variants", blank=True)
+    # A many-to-many relation has no author-facing order. Keep the requested order
+    # separately because it is the slide order that Meta receives for a carousel.
+    media_asset_order = models.JSONField(default=list, blank=True)
     channel_hint = models.CharField(max_length=64, blank=True)

@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.utils import timezone
 
 from relay.content.models import MediaAsset, Post
+from relay.content.services import ordered_media_assets
 from relay.publications.models import Publication
 from relay.approvals.models import ApprovalComment, ApprovalRequest
 from relay.social.models import ChannelConnection
@@ -12,7 +13,7 @@ class PostCreateSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=255, required=False, allow_blank=True)
     body = serializers.CharField(allow_blank=False, trim_whitespace=False)
     media_asset_ids = serializers.ListField(
-        child=serializers.UUIDField(), required=False, default=list, max_length=1
+        child=serializers.UUIDField(), required=False, default=list, max_length=10
     )
 
 
@@ -74,7 +75,7 @@ class PostSerializer(serializers.ModelSerializer):
 
     def get_media_asset_ids(self, post):
         variant = post.variants.order_by("created_at").first()
-        return [str(asset_id) for asset_id in variant.media_assets.values_list("id", flat=True)] if variant else []
+        return [str(asset.id) for asset in ordered_media_assets(variant=variant)] if variant else []
 
     class Meta:
         model = Post

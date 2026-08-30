@@ -21,6 +21,7 @@ class MediaUploadUnavailable(Exception):
 
 SUPPORTED_IMAGE_TYPES = frozenset({"image/jpeg", "image/png"})
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_POST_IMAGES = 10
 
 
 @dataclass(frozen=True)
@@ -129,7 +130,7 @@ def confirm_media_upload(*, asset: MediaAsset, tenant: Tenant, subject: str) -> 
 
 def ready_assets_for_post(*, tenant: Tenant, brand: Brand, asset_ids: list[object]) -> list[MediaAsset]:
     normalized_ids = list(dict.fromkeys(asset_ids))
-    if len(normalized_ids) > 1:
+    if len(normalized_ids) > MAX_POST_IMAGES:
         raise InvalidMediaAsset
     assets = list(
         MediaAsset.objects.select_for_update().filter(
@@ -141,4 +142,23 @@ def ready_assets_for_post(*, tenant: Tenant, brand: Brand, asset_ids: list[objec
     )
     if len(assets) != len(normalized_ids):
         raise InvalidMediaAsset
-    return assets
+    # Preserve the order selected by the author: it is the slide order of a carousel.
+    assets_by_id = {asset.id: asset for asset in assets}
+    return [assets_by_id[asset_id] for asset_id in normalized_ids]
+
+
+def ordered_media_assets(*, variant) -> list[MediaAsset]:
+    """Return a variant's images in the author-selected carousel order.
+
+    Variants created before carousel support have no stored order; retaining their
+    creation order keeps existing single-image posts fully backward-compatible.
+    """
+    assets = list(variant.media_assets.all().order_by("created_at", "id"))
+    assets_by_id = {str(asset.id): asset for asset in assets}
+    ordered = [
+        assets_by_id[asset_id]
+        for asset_id in variant.media_asset_order
+        if asset_id in assets_by_id
+    ]
+    selected = {asset.id for asset in ordered}
+    return ordered + [asset for asset in assets if asset.id not in selected]

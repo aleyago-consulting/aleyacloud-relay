@@ -279,7 +279,9 @@ class PostCollectionView(TenantScopedAPIView):
         except IdempotencyConflict as error:
             raise IdempotencyConflictResponse from error
         except InvalidMediaAsset as error:
-            raise ValidationError({"media_asset_ids": "Use one ready image from the selected brand."}) from error
+            raise ValidationError(
+                {"media_asset_ids": "Use between one and ten ready images from the selected brand."}
+            ) from error
 
         response_status = status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
         return Response(PostSerializer(result.post).data, status=response_status)

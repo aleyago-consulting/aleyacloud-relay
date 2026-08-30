@@ -72,6 +72,31 @@ def test_draft_ingest_token_is_scoped_to_one_brand_and_grants_only_ingest_scopes
     assert Membership.objects.get(workspace=tenant, subject="task:content-ingest-allowed").role == MembershipRole.CONTENT_CREATOR
 
 
+def test_schedule_ingest_token_can_only_approve_and_schedule_its_brand_content() -> None:
+    tenant = Tenant.objects.create(slug="scheduled-content", name="Scheduled Content")
+    brand = Brand.objects.create(workspace=tenant, slug="tavisa", name="TavisaSuite")
+    output = StringIO()
+
+    call_command(
+        "issue_draft_ingest_token",
+        workspace_slug=tenant.slug,
+        brand_slug=brand.slug,
+        subject="task:content-ingest-tavisa-schedule",
+        purpose="schedule",
+        stdout=output,
+    )
+    payload = jwt.decode(
+        output.getvalue().strip(),
+        settings.RELAY_SERVICE_JWT_SECRET,
+        algorithms=["HS256"],
+        audience=settings.RELAY_SERVICE_JWT_AUDIENCE,
+        issuer=settings.RELAY_SERVICE_JWT_ISSUER,
+    )
+
+    assert payload["brand_ids"] == [str(brand.id)]
+    assert payload["scopes"] == ["media:write", "posts:write", "posts:approve", "publications:write"]
+
+
 def test_post_creation_is_tenant_scoped_and_idempotent() -> None:
     tenant = Tenant.objects.create(slug="relay-demo", name="Relay Demo")
     brand = Brand.objects.create(workspace=tenant, slug="relay", name="Relay Brand")
@@ -182,6 +207,41 @@ def test_post_rejects_media_from_another_brand() -> None:
     )
 
     assert response.status_code == 400
+
+
+def test_post_accepts_a_carousel_and_preserves_the_selected_image_order() -> None:
+    tenant = Tenant.objects.create(slug="carousel", name="Carousel")
+    brand = Brand.objects.create(workspace=tenant, slug="carousel", name="Carousel Brand")
+    first = MediaAsset.objects.create(
+        tenant=tenant,
+        brand=brand,
+        storage_key="relay/test/first.jpg",
+        content_type="image/jpeg",
+        size_bytes=42,
+        upload_state=MediaAsset.UploadState.READY,
+    )
+    second = MediaAsset.objects.create(
+        tenant=tenant,
+        brand=brand,
+        storage_key="relay/test/second.jpg",
+        content_type="image/jpeg",
+        size_bytes=42,
+        upload_state=MediaAsset.UploadState.READY,
+    )
+
+    response = service_client(tenant, [brand], ["posts:write"]).post(
+        reverse("post-collection"),
+        {
+            "brand_id": str(brand.id),
+            "body": "Carousel post",
+            "media_asset_ids": [str(second.id), str(first.id)],
+        },
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="carousel-post-001",
+    )
+
+    assert response.status_code == 201
+    assert response.data["media_asset_ids"] == [str(second.id), str(first.id)]
 
 
 def test_post_from_another_tenant_is_hidden() -> None:

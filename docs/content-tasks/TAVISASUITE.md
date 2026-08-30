@@ -2,20 +2,20 @@
 
 ## Objetivo
 
-Subir el material recibido como un borrador de contenido en Relay para la marca
-**TavisaSuite**. El borrador debe quedar listo para revisión humana.
+Subir el lote recibido a Relay para la marca **TavisaSuite** y dejar cada pieza
+programada en sus fechas. Relay, no esta tarea, ejecutará la publicación.
 
 ## Límites de autoridad
 
 Esta tarea puede:
 
-- subir una imagen JPG o PNG de hasta 10 MiB;
-- crear un post en estado `DRAFT`;
-- informar el identificador y el resultado del borrador.
+- subir una imagen JPG o PNG de hasta 10 MiB, o un carrusel de 2 a 10 imágenes;
+- crear, aprobar y programar el post en los canales configurados para TavisaSuite;
+- informar los identificadores y el resultado de cada programación.
 
 Esta tarea no puede ni debe:
 
-- aprobar, programar, publicar o cancelar contenido;
+- publicar de forma directa, cancelar contenido o elegir conexiones sociales;
 - modificar conexiones sociales o credenciales;
 - acceder a contenido de AleyaCloud, GoClinicals u otras marcas;
 - solicitar, mostrar o guardar credenciales de Relay.
@@ -24,10 +24,10 @@ Esta tarea no puede ni debe:
 
 Se debe recibir antes de actuar:
 
-- texto final del post;
-- título opcional;
-- imagen JPG o PNG adjunta;
-- correcciones explícitas si el contenido sustituye a un borrador previo.
+- manifiesto JSON de lote con un `id` estable, texto, título opcional, imágenes
+  y fecha/hora ISO 8601 con zona horaria por pieza;
+- una imagen para una publicación normal, o de dos a diez para un carrusel;
+- correcciones explícitas si el contenido sustituye a una pieza previa.
 
 Si falta texto o imagen, pedirlo. No inventar características de producto,
 precios, compatibilidades, clientes, enlaces o afirmaciones técnicas.
@@ -35,23 +35,25 @@ precios, compatibilidades, clientes, enlaces o afirmaciones técnicas.
 ## Ejecución en Relay
 
 Usar únicamente el cliente local autorizado con el perfil `tavisasuite`. No
-pedir, mostrar ni extraer tokens. El cliente cifra el perfil localmente y
-realiza la subida de imagen y creación del borrador.
+pedir, mostrar ni extraer tokens. El cliente cifra el perfil localmente, sube
+las imágenes, crea el post, lo aprueba y programa sus canales permitidos.
 
-Ejecutar `C:\Users\Jorge\.codex\tools\relay-task-vault.ps1` con `-Action Submit -Profile tavisasuite`,
-el archivo de imagen y el texto recibido (preferiblemente mediante `-BodyFile`
-para conservar saltos de línea).
+Ejecutar `C:\Users\Jorge\.codex\tools\relay-task-vault.ps1` con
+`-Action SubmitBatch -Profile tavisasuite -ManifestPath RUTA_AL_MANIFIESTO`.
+El formato exacto está en `docs/CONTENT-INGESTION.md`.
 
-No llamar a ningún endpoint de aprobación, publicación o programación.
+No llamar a la API de Relay directamente ni a Meta. El cliente es el único
+medio autorizado; programar no es publicar.
 
 ## Resultado esperado
 
 Crear el contenido para la marca `tavisasuite` dentro del Workspace editorial
 autorizado. Confirmar al finalizar:
 
-- que el estado es `DRAFT`;
-- el título o extracto que identifica el borrador;
-- si la imagen quedó asociada correctamente.
+- que cada post está `APPROVED`;
+- que hay una publicación `SCHEDULED` por canal configurado;
+- el título o extracto que identifica cada pieza y si las imágenes quedaron
+  asociadas en el orden correcto.
 
-No anunciar que algo se ha publicado: un borrador de Relay no es una
+No anunciar que algo se ha publicado: una programación de Relay no es una
 publicación en redes sociales.

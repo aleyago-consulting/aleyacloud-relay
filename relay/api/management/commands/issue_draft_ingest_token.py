@@ -1,4 +1,4 @@
-"""Issue a least-privilege, short-lived credential for draft ingestion."""
+"""Issue a least-privilege, short-lived credential for content ingestion."""
 
 from datetime import timedelta
 from uuid import uuid4
@@ -12,7 +12,7 @@ from relay.tenancy.models import Brand, Membership, MembershipRole
 
 
 class Command(BaseCommand):
-    help = "Issues a scoped JWT that can upload media and create DRAFT posts for one brand only."
+    help = "Issues a scoped JWT for one brand: draft ingestion or approved scheduling."
 
     def add_arguments(self, parser):
         parser.add_argument("--workspace-slug", required=True)
@@ -27,6 +27,15 @@ class Command(BaseCommand):
             type=int,
             default=14,
             help="Credential lifetime in days (1-30; default 14).",
+        )
+        parser.add_argument(
+            "--purpose",
+            choices=("draft", "schedule"),
+            default="draft",
+            help=(
+                "draft only creates DRAFT posts; schedule may also approve and schedule "
+                "its own content."
+            ),
         )
 
     def handle(self, *args, **options):
@@ -59,12 +68,16 @@ class Command(BaseCommand):
             membership.save(update_fields=("is_active", "updated_at"))
 
         issued_at = timezone.now()
+        scopes = ["media:write", "posts:write"]
+        if options["purpose"] == "schedule":
+            scopes.extend(("posts:approve", "publications:write"))
+
         token = jwt.encode(
             {
                 "sub": options["subject"],
                 "workspace_id": str(brand.workspace_id),
                 "brand_ids": [str(brand.id)],
-                "scopes": ["media:write", "posts:write"],
+                "scopes": scopes,
                 "iss": settings.RELAY_SERVICE_JWT_ISSUER,
                 "aud": settings.RELAY_SERVICE_JWT_AUDIENCE,
                 "iat": issued_at,
@@ -75,9 +88,14 @@ class Command(BaseCommand):
             algorithm="HS256",
         )
         self.stdout.write(token)
+        capability = (
+            "upload media, create drafts, approve them, and schedule publications"
+            if options["purpose"] == "schedule"
+            else "upload media and create drafts"
+        )
         self.stderr.write(
             self.style.WARNING(
-                "Store this bearer token only in the task's secret store. It can upload media and create drafts, "
-                "but cannot approve, schedule, publish, read connections, or access another brand."
+                f"Store this bearer token only in the task's secret store. It can {capability}, "
+                "but cannot publish directly, read connections, or access another brand."
             )
         )

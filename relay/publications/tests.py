@@ -19,18 +19,26 @@ pytestmark = pytest.mark.django_db
 
 
 class SuccessfulPublisher:
-    def publish_image(self, **_: object) -> MetaPublishedContent:
+    def publish_images(self, **_: object) -> MetaPublishedContent:
         return MetaPublishedContent(provider_publication_id="meta-publication-1")
 
 
 class TransientPublisher:
-    def publish_image(self, **_: object) -> MetaPublishedContent:
+    def publish_images(self, **_: object) -> MetaPublishedContent:
         raise MetaPublishTransientError("Temporary Meta outage")
 
 
 class RejectedPublisher:
-    def publish_image(self, **_: object) -> MetaPublishedContent:
+    def publish_images(self, **_: object) -> MetaPublishedContent:
         raise MetaPublishPermanentError("Rejected by Meta")
+
+
+class CapturingPublisher:
+    image_urls: list[str]
+
+    def publish_images(self, *, image_urls: list[str], **_: object) -> MetaPublishedContent:
+        self.image_urls = image_urls
+        return MetaPublishedContent(provider_publication_id="meta-carousel-1")
 
 
 def due_publication() -> Publication:
@@ -75,3 +83,27 @@ def test_permanent_meta_error_fails_without_retry() -> None:
     assert result == "failed"
     assert publication.state == LifecycleState.FAILED
     assert publication.attempts.get().outcome == "FAILED"
+
+
+@override_settings(TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode(), RELAY_MEDIA_PUBLIC_BASE_URL="https://media.example.test/relay")
+def test_due_publication_sends_all_carousel_images_to_publisher() -> None:
+    publication = due_publication()
+    first_asset = publication.post_variant.media_assets.get()
+    second_asset = MediaAsset.objects.create(
+        tenant=publication.tenant,
+        brand=publication.brand,
+        storage_key="delivery/image-2.jpg",
+        content_type="image/jpeg",
+        size_bytes=43,
+    )
+    publication.post_variant.media_assets.add(second_asset)
+    publisher = CapturingPublisher()
+
+    result = publish_due_publication(publication_id=publication.id, publisher=publisher)
+
+    assert result == "published"
+    assert publisher.image_urls == [
+        "https://media.example.test/relay/delivery/image.jpg",
+        "https://media.example.test/relay/delivery/image-2.jpg",
+    ]
+    assert first_asset.upload_state == MediaAsset.UploadState.READY

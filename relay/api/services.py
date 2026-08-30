@@ -83,6 +83,8 @@ def create_post_draft(
         )
         variant = PostVariant.objects.create(post=post, body=post.body)
         variant.media_assets.set(media_assets)
+        variant.media_asset_order = [str(asset.id) for asset in media_assets]
+        variant.save(update_fields=("media_asset_order", "updated_at"))
         AuditLog.objects.create(
             tenant=tenant,
             brand=brand,
@@ -163,7 +165,9 @@ def schedule_publication(
     if post_variant.post.state != LifecycleState.APPROVED:
         raise InvalidStateTransition
     media_assets = list(post_variant.media_assets.all())
-    if len(media_assets) != 1 or media_assets[0].upload_state != MediaAsset.UploadState.READY:
+    if not 1 <= len(media_assets) <= 10 or any(
+        asset.upload_state != MediaAsset.UploadState.READY for asset in media_assets
+    ):
         raise InvalidSchedule
 
     try:

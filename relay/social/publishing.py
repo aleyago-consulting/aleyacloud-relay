@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import json
 from time import sleep
 from typing import Any
 
@@ -25,22 +26,37 @@ class MetaPublishingClient:
     def __init__(self, config: MetaSettings | None = None) -> None:
         self.config = config or get_meta_settings()
 
-    def publish_image(
-        self, *, connection: ChannelConnection, access_token: str, body: str, image_url: str
+    def publish_images(
+        self,
+        *,
+        connection: ChannelConnection,
+        access_token: str,
+        body: str,
+        image_urls: list[str],
     ) -> MetaPublishedContent:
+        if not 1 <= len(image_urls) <= 10:
+            raise MetaPublishPermanentError("A Meta publication must contain between one and ten images.")
         with httpx.Client(timeout=20.0) as client:
             if connection.channel == Channel.META_FACEBOOK_PAGE:
+                if len(image_urls) > 1:
+                    return self._publish_facebook_carousel(
+                        client, connection, access_token, body, image_urls
+                    )
                 response = self._post(
                     client,
                     f"/{connection.provider_channel_id}/photos",
-                    {"url": image_url, "caption": body, "access_token": access_token},
+                    {"url": image_urls[0], "caption": body, "access_token": access_token},
                 )
                 return MetaPublishedContent(provider_publication_id=self._id(response))
             if connection.channel == Channel.META_INSTAGRAM_BUSINESS_ACCOUNT:
+                if len(image_urls) > 1:
+                    return self._publish_instagram_carousel(
+                        client, connection, access_token, body, image_urls
+                    )
                 container = self._post(
                     client,
                     f"/{connection.provider_channel_id}/media",
-                    {"image_url": image_url, "caption": body, "access_token": access_token},
+                    {"image_url": image_urls[0], "caption": body, "access_token": access_token},
                 )
                 creation_id = self._id(container)
                 self._wait_for_instagram_container(client, creation_id, access_token)
@@ -52,7 +68,75 @@ class MetaPublishingClient:
                 return MetaPublishedContent(provider_publication_id=self._id(published))
         raise MetaPublishPermanentError("Unsupported Meta channel.")
 
-    def _post(self, client: httpx.Client, path: str, data: dict[str, str]) -> dict[str, Any]:
+    def _publish_facebook_carousel(
+        self,
+        client: httpx.Client,
+        connection: ChannelConnection,
+        access_token: str,
+        body: str,
+        image_urls: list[str],
+    ) -> MetaPublishedContent:
+        media_ids = []
+        for image_url in image_urls:
+            uploaded = self._post(
+                client,
+                f"/{connection.provider_channel_id}/photos",
+                {"url": image_url, "published": "false", "access_token": access_token},
+            )
+            media_ids.append(self._id(uploaded))
+        published = self._post(
+            client,
+            f"/{connection.provider_channel_id}/feed",
+            {
+                "message": body,
+                "attached_media": json.dumps([{"media_fbid": media_id} for media_id in media_ids]),
+                "access_token": access_token,
+            },
+        )
+        return MetaPublishedContent(provider_publication_id=self._id(published))
+
+    def _publish_instagram_carousel(
+        self,
+        client: httpx.Client,
+        connection: ChannelConnection,
+        access_token: str,
+        body: str,
+        image_urls: list[str],
+    ) -> MetaPublishedContent:
+        child_ids = []
+        for image_url in image_urls:
+            child = self._post(
+                client,
+                f"/{connection.provider_channel_id}/media",
+                {
+                    "image_url": image_url,
+                    "is_carousel_item": "true",
+                    "access_token": access_token,
+                },
+            )
+            child_id = self._id(child)
+            self._wait_for_instagram_container(client, child_id, access_token)
+            child_ids.append(child_id)
+        container = self._post(
+            client,
+            f"/{connection.provider_channel_id}/media",
+            {
+                "media_type": "CAROUSEL",
+                "children": ",".join(child_ids),
+                "caption": body,
+                "access_token": access_token,
+            },
+        )
+        creation_id = self._id(container)
+        self._wait_for_instagram_container(client, creation_id, access_token)
+        published = self._post(
+            client,
+            f"/{connection.provider_channel_id}/media_publish",
+            {"creation_id": creation_id, "access_token": access_token},
+        )
+        return MetaPublishedContent(provider_publication_id=self._id(published))
+
+    def _post(self, client: httpx.Client, path: str, data: dict[str, Any]) -> dict[str, Any]:
         try:
             response = client.post(f"{self.config.graph_url}{path}", data=data)
         except httpx.RequestError as error:
