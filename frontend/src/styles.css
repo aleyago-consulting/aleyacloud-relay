@@ -10,3 +10,38 @@
 html { background: #f7f8fc; }
 body { margin: 0; min-width: 320px; color: var(--color-ink); }
 button { font: inherit; }
+
+/* FullCalendar is styled as a native Relay workspace pane rather than a
+   separately embedded widget. */
+.relay-calendar .fc {
+  --fc-border-color: #e4e9f1;
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: #f8fafc;
+  --fc-today-bg-color: #f5fbe7;
+  --fc-button-bg-color: #ffffff;
+  --fc-button-border-color: #dbe2ea;
+  --fc-button-text-color: #334155;
+  --fc-button-hover-bg-color: #f8fafc;
+  --fc-button-hover-border-color: #cbd5e1;
+  --fc-button-active-bg-color: #0a1425;
+  --fc-button-active-border-color: #0a1425;
+}
+.relay-calendar .fc .fc-toolbar { gap: .75rem; margin-bottom: 1.25rem; }
+.relay-calendar .fc .fc-toolbar-title { color: #081120; font-size: 1rem; font-weight: 750; text-transform: capitalize; }
+.relay-calendar .fc .fc-button { border-radius: .5rem; box-shadow: none; font-size: .75rem; font-weight: 700; text-transform: none; }
+.relay-calendar .fc .fc-button:focus { box-shadow: 0 0 0 3px rgba(163, 230, 53, .25); }
+.relay-calendar .fc .fc-col-header-cell-cushion { color: #64748b; font-size: .65rem; font-weight: 800; letter-spacing: .08em; padding: .75rem .25rem; text-decoration: none; text-transform: uppercase; }
+.relay-calendar .fc .fc-daygrid-day-number { color: #64748b; font-size: .75rem; font-weight: 600; padding: .5rem; text-decoration: none; }
+.relay-calendar .fc .fc-day-today .fc-daygrid-day-number { color: #4d7c0f; font-weight: 800; }
+.relay-calendar .fc .fc-daygrid-event { border: 0; border-radius: .35rem; cursor: pointer; margin: 2px 3px; padding: 2px 4px; }
+.relay-calendar .fc .fc-event-title { font-size: .7rem; font-weight: 700; }
+.relay-calendar .fc .fc-event-time { font-size: .65rem; font-weight: 700; }
+.relay-calendar .relay-event-scheduled { background: #f1edff; color: #6d28d9; }
+.relay-calendar .relay-event-published { background: #e8f8ef; color: #047857; }
+.relay-calendar .relay-event-failed { background: #fff0f1; color: #be123c; }
+.relay-calendar .relay-event-publishing { background: #e9efff; color: #4338ca; }
+.relay-calendar .relay-event-cancelled { background: #f1f5f9; color: #64748b; }
+@media (max-width: 640px) {
+  .relay-calendar .fc .fc-toolbar { align-items: flex-start; flex-direction: column; }
+  .relay-calendar .fc .fc-toolbar-chunk:last-child { display: none; }
+}
