@@ -2,45 +2,178 @@
 
 @theme {
   --font-sans: "Inter", "SF Pro Display", ui-sans-serif, system-ui, sans-serif;
-  --color-ink: #162033;
-  --color-brand: #6d5dfc;
-  --color-mint: #24c99a;
+  --color-ink: #092044;
+  --color-brand: #1463df;
+  --color-mint: #caff3e;
 }
 
-html { background: #f7f8fc; }
-body { margin: 0; min-width: 320px; color: var(--color-ink); }
+:root {
+  --aleya-navy: #071a36;
+  --aleya-navy-deep: #041126;
+  --aleya-blue: #1463df;
+  --aleya-line: #dbe7f5;
+  --aleya-surface: #f4f8fd;
+  --relay-lime: #caff3e;
+}
+
+html { background: var(--aleya-surface); }
+body {
+  margin: 0;
+  min-width: 320px;
+  color: var(--color-ink);
+  background:
+    radial-gradient(circle at 90% -12%, rgba(36, 130, 255, .16), transparent 31rem),
+    linear-gradient(145deg, #f8fbff 0%, var(--aleya-surface) 58%, #edf5ff 100%);
+}
 button { font: inherit; }
 
-/* FullCalendar is styled as a native Relay workspace pane rather than a
-   separately embedded widget. */
+/* AleyaCloud product shell: cobalt carries navigation and actions; the Relay
+   lime remains a focused accent for active and ready states. */
+#root > div.min-h-screen { background: transparent !important; }
+#root > div.min-h-screen > aside {
+  overflow: hidden;
+  border-right-color: rgba(168, 208, 255, .18) !important;
+  background:
+    radial-gradient(circle at 16% 6%, rgba(63, 143, 255, .46), transparent 21rem),
+    linear-gradient(165deg, #0b346b 0%, var(--aleya-navy) 47%, var(--aleya-navy-deep) 100%) !important;
+  box-shadow: 12px 0 38px rgba(4, 17, 38, .13);
+}
+#root > div.min-h-screen > aside::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  content: "";
+  background: linear-gradient(90deg, transparent, #5ba0ff 42%, var(--relay-lime));
+}
+#root > div.min-h-screen > aside > div:first-child {
+  height: 5.5rem;
+  border-bottom-color: rgba(182, 218, 255, .18) !important;
+}
+#root > div.min-h-screen > aside > div:first-child p:last-child {
+  color: transparent !important;
+  font-size: 0;
+}
+#root > div.min-h-screen > aside > div:first-child p:last-child::after {
+  display: block;
+  color: #b8d6ff;
+  content: "ALEYA CLOUD · SOCIAL";
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .13em;
+}
+#root > div.min-h-screen > aside img {
+  border: 1px solid rgba(202, 255, 62, .45);
+  box-shadow: 0 10px 24px rgba(1, 14, 36, .28) !important;
+}
+#root > div.min-h-screen > aside button[class*="bg-[#ceff3f]"] {
+  color: #07204a !important;
+  background: linear-gradient(105deg, #d5ff58, var(--relay-lime)) !important;
+  box-shadow: 0 10px 24px rgba(156, 220, 40, .2) !important;
+}
+#root > div.min-h-screen > aside button:not([class*="bg-[#ceff3f]"]):hover {
+  background: rgba(95, 164, 255, .18) !important;
+}
+#root > div.min-h-screen > main > header {
+  min-height: 5.5rem;
+  border-bottom-color: var(--aleya-line) !important;
+  background: rgba(255, 255, 255, .88) !important;
+  box-shadow: 0 4px 18px rgba(14, 66, 132, .035);
+  backdrop-filter: blur(18px);
+}
+#root > div.min-h-screen > main > header select:focus,
+#root > div.min-h-screen input:focus,
+#root > div.min-h-screen textarea:focus {
+  border-color: var(--aleya-blue) !important;
+  outline: 0;
+  box-shadow: 0 0 0 4px rgba(20, 99, 223, .12) !important;
+}
+#root button[class*="bg-[#0a1425]"] {
+  color: white !important;
+  background: linear-gradient(135deg, #176be8, #0b4eaf) !important;
+  box-shadow: 0 10px 20px rgba(20, 99, 223, .18) !important;
+}
+#root button[class*="bg-[#0a1425]"]:hover { filter: brightness(1.06); }
+#root [class*="text-[#ceff3f]"] { color: var(--relay-lime) !important; }
+#root [class*="text-lime-700"] { color: #397b06 !important; }
+#root [class*="border-lime-200"] { border-color: #d5eda6 !important; }
+#root [class*="bg-lime-50"] { background-color: #f5ffe3 !important; }
+
+/* Sign-in uses the same light-over-blue visual language. */
+#root > main.min-h-screen {
+  background:
+    radial-gradient(circle at 13% 8%, rgba(83, 156, 255, .42), transparent 26rem),
+    radial-gradient(circle at 85% 90%, rgba(202, 255, 62, .16), transparent 25rem),
+    linear-gradient(145deg, #0a3876, var(--aleya-navy-deep)) !important;
+}
+#root > main.min-h-screen > div:first-child { opacity: .45; }
+#root > main.min-h-screen form {
+  border-color: rgba(206, 225, 250, .74) !important;
+  box-shadow: 0 30px 80px rgba(1, 14, 36, .35) !important;
+}
+
+/* FullCalendar is a native AleyaCloud pane, not a separate embedded widget. */
 .relay-calendar .fc {
-  --fc-border-color: #e4e9f1;
+  --fc-border-color: var(--aleya-line);
   --fc-page-bg-color: transparent;
-  --fc-neutral-bg-color: #f8fafc;
-  --fc-today-bg-color: #f5fbe7;
+  --fc-neutral-bg-color: #f7faff;
+  --fc-today-bg-color: #edf6ff;
   --fc-button-bg-color: #ffffff;
-  --fc-button-border-color: #dbe2ea;
-  --fc-button-text-color: #334155;
-  --fc-button-hover-bg-color: #f8fafc;
-  --fc-button-hover-border-color: #cbd5e1;
-  --fc-button-active-bg-color: #0a1425;
-  --fc-button-active-border-color: #0a1425;
+  --fc-button-border-color: #cddff5;
+  --fc-button-text-color: #24466f;
+  --fc-button-hover-bg-color: #f2f7ff;
+  --fc-button-hover-border-color: #8eb9f0;
+  --fc-button-active-bg-color: #1463df;
+  --fc-button-active-border-color: #1463df;
 }
 .relay-calendar .fc .fc-toolbar { gap: .75rem; margin-bottom: 1.25rem; }
-.relay-calendar .fc .fc-toolbar-title { color: #081120; font-size: 1rem; font-weight: 750; text-transform: capitalize; }
-.relay-calendar .fc .fc-button { border-radius: .5rem; box-shadow: none; font-size: .75rem; font-weight: 700; text-transform: none; }
-.relay-calendar .fc .fc-button:focus { box-shadow: 0 0 0 3px rgba(163, 230, 53, .25); }
-.relay-calendar .fc .fc-col-header-cell-cushion { color: #64748b; font-size: .65rem; font-weight: 800; letter-spacing: .08em; padding: .75rem .25rem; text-decoration: none; text-transform: uppercase; }
-.relay-calendar .fc .fc-daygrid-day-number { color: #64748b; font-size: .75rem; font-weight: 600; padding: .5rem; text-decoration: none; }
-.relay-calendar .fc .fc-day-today .fc-daygrid-day-number { color: #4d7c0f; font-weight: 800; }
-.relay-calendar .fc .fc-daygrid-event { border: 0; border-radius: .35rem; cursor: pointer; margin: 2px 3px; padding: 2px 4px; }
+.relay-calendar .fc .fc-toolbar-title {
+  color: var(--aleya-navy);
+  font-size: 1rem;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+.relay-calendar .fc .fc-button {
+  border-radius: .5rem;
+  box-shadow: none;
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: none;
+}
+.relay-calendar .fc .fc-button:focus { box-shadow: 0 0 0 3px rgba(20, 99, 223, .2); }
+.relay-calendar .fc .fc-col-header-cell-cushion {
+  color: #6380a5;
+  font-size: .65rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  padding: .75rem .25rem;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.relay-calendar .fc .fc-daygrid-day-number {
+  color: #5b789f;
+  font-size: .75rem;
+  font-weight: 600;
+  padding: .5rem;
+  text-decoration: none;
+}
+.relay-calendar .fc .fc-day-today .fc-daygrid-day-number { color: #1260d1; font-weight: 800; }
+.relay-calendar .fc .fc-daygrid-event {
+  border: 0;
+  border-radius: .35rem;
+  cursor: pointer;
+  margin: 2px 3px;
+  padding: 2px 4px;
+}
 .relay-calendar .fc .fc-event-title { font-size: .7rem; font-weight: 700; }
 .relay-calendar .fc .fc-event-time { font-size: .65rem; font-weight: 700; }
-.relay-calendar .relay-event-scheduled { background: #f1edff; color: #6d28d9; }
+.relay-calendar .relay-event-scheduled { background: #e8f1ff; color: #135bc3; }
 .relay-calendar .relay-event-published { background: #e8f8ef; color: #047857; }
 .relay-calendar .relay-event-failed { background: #fff0f1; color: #be123c; }
 .relay-calendar .relay-event-publishing { background: #e9efff; color: #4338ca; }
 .relay-calendar .relay-event-cancelled { background: #f1f5f9; color: #64748b; }
+
 @media (max-width: 640px) {
   .relay-calendar .fc .fc-toolbar { align-items: flex-start; flex-direction: column; }
   .relay-calendar .fc .fc-toolbar-chunk:last-child { display: none; }
