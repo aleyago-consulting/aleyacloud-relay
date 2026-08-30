@@ -63,9 +63,11 @@ individual, será un registro de credenciales con identificador y digest.
 ## Bóveda local de tareas (Windows)
 
 Para que una tarea no reciba el token en el chat, Relay incluye el cliente
-local [`tools/relay-task-vault.ps1`](../tools/relay-task-vault.ps1). Guarda
-cada perfil cifrado con DPAPI de Windows y con una ACL privada para el usuario
-de Windows actual. El token no se imprime al usar el perfil.
+local [`tools/relay-task-vault.ps1`](../tools/relay-task-vault.ps1). Instalarlo
+en `C:\Users\Jorge\.codex\tools\relay-task-vault.ps1` para que sea accesible
+desde cualquier workspace. Guarda cada perfil cifrado con DPAPI de Windows y
+con una ACL privada para el usuario de Windows actual. El token no se imprime
+al usar el perfil.
 
 Después de emitir un token en el servidor, copiarlo directamente desde el
 terminal y guardarlo localmente; nunca pegarlo aquí. Se necesita el UUID de la
@@ -74,20 +76,20 @@ marca que mostró `provision_content_workspace`.
 ```powershell
 # En el equipo Windows, una vez por perfil. El script solicita el token de
 # forma oculta y lo cifra en %LOCALAPPDATA%\AleyaCloud\Relay\TaskSecrets.
-& 'C:\Users\Jorge\.codex\worktrees\0201\AleyaCloud\tools\relay-task-vault.ps1' `
+& 'C:\Users\Jorge\.codex\tools\relay-task-vault.ps1' `
   -Action Set -Profile tavisasuite -BrandId 'UUID-DE-TAVISASUITE'
 
-& 'C:\Users\Jorge\.codex\worktrees\0201\AleyaCloud\tools\relay-task-vault.ps1' `
+& 'C:\Users\Jorge\.codex\tools\relay-task-vault.ps1' `
   -Action Set -Profile goclinicals -BrandId 'UUID-DE-GOCLINICALS'
 
-& 'C:\Users\Jorge\.codex\worktrees\0201\AleyaCloud\tools\relay-task-vault.ps1' `
+& 'C:\Users\Jorge\.codex\tools\relay-task-vault.ps1' `
   -Action Set -Profile aleyacloud -BrandId 'UUID-DE-ALEYACLOUD'
 ```
 
 Comprobar un perfil sin revelar el token:
 
 ```powershell
-& 'C:\Users\Jorge\.codex\worktrees\0201\AleyaCloud\tools\relay-task-vault.ps1' `
+& 'C:\Users\Jorge\.codex\tools\relay-task-vault.ps1' `
   -Action Status -Profile tavisasuite
 ```
 

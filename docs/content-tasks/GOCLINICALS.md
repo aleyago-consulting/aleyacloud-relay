@@ -38,7 +38,7 @@ Usar únicamente el cliente local autorizado con el perfil `goclinicals`. No
 pedir, mostrar ni extraer tokens. El cliente cifra el perfil localmente y
 realiza la subida de imagen y creación del borrador.
 
-Ejecutar `tools/relay-task-vault.ps1` con `-Action Submit -Profile goclinicals`,
+Ejecutar `C:\Users\Jorge\.codex\tools\relay-task-vault.ps1` con `-Action Submit -Profile goclinicals`,
 el archivo de imagen y el texto recibido (preferiblemente mediante `-BodyFile`
 para conservar saltos de línea).
 

@@ -38,7 +38,7 @@ Usar únicamente el cliente local autorizado con el perfil `aleyacloud`. No
 pedir, mostrar ni extraer tokens. El cliente cifra el perfil localmente y
 realiza la subida de imagen y creación del borrador.
 
-Ejecutar `tools/relay-task-vault.ps1` con `-Action Submit -Profile aleyacloud`,
+Ejecutar `C:\Users\Jorge\.codex\tools\relay-task-vault.ps1` con `-Action Submit -Profile aleyacloud`,
 el archivo de imagen y el texto recibido (preferiblemente mediante `-BodyFile`
 para conservar saltos de línea).
 
