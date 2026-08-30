@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, get_user_model, login, logout
 from datetime import timedelta
 from django.db.models import Count, Prefetch
 from django.db.models.functions import TruncDate
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
@@ -219,29 +219,8 @@ class PanelWorkspaceView(APIView):
     """Switch the authenticated browser to one of its own workspaces."""
 
     def post(self, request):
-        return self._switch(
-            request,
-            workspace_id=request.data.get("workspace_id"),
-            brand_id=request.data.get("brand_id"),
-            response="json",
-        )
-
-    def get(self, request):
-        """Browser navigation fallback for the workspace/brand picker.
-
-        The selected workspace is only a server-side display preference. The
-        current authenticated user is checked against Membership before it is
-        stored, and the browser is returned to the app in one request.
-        """
-        return self._switch(
-            request,
-            workspace_id=request.query_params.get("workspace_id"),
-            brand_id=request.query_params.get("brand_id"),
-            response="redirect",
-        )
-
-    @staticmethod
-    def _switch(request, *, workspace_id, brand_id, response: str):
+        workspace_id = request.data.get("workspace_id")
+        brand_id = request.data.get("brand_id")
         if not workspace_id:
             raise ValidationError({"workspace_id": "This field is required."})
         membership = Membership.objects.filter(
@@ -261,8 +240,6 @@ class PanelWorkspaceView(APIView):
             request.session["relay_brand_id"] = str(brand_id)
         else:
             request.session.pop("relay_brand_id", None)
-        if response == "redirect":
-            return redirect("/app/")
         return Response(panel_context(request))
 
 

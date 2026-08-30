@@ -4,12 +4,14 @@ from io import StringIO
 import jwt
 import pytest
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from relay.audit.models import AuditLog
+from relay.api.authentication import panel_subject
 from relay.content.models import MediaAsset, Post
 from relay.common.models import LifecycleState
 from relay.approvals.models import ApprovalRequest
@@ -42,6 +44,39 @@ def service_client(tenant: Tenant, brands: list[Brand], scopes: list[str]) -> AP
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
     return client
+
+
+def test_panel_user_can_switch_only_to_an_owned_workspace_and_brand() -> None:
+    user = get_user_model().objects.create_user(username="jorge", password="safe-test-password")
+    first_workspace = Tenant.objects.create(slug="first", name="First")
+    second_workspace = Tenant.objects.create(slug="second", name="Second")
+    first_brand = Brand.objects.create(workspace=first_workspace, slug="one", name="One")
+    second_brand = Brand.objects.create(workspace=second_workspace, slug="two", name="Two")
+    Membership.objects.create(
+        workspace=first_workspace,
+        subject=panel_subject(user.id),
+        role=MembershipRole.OWNER,
+    )
+    Membership.objects.create(
+        workspace=second_workspace,
+        subject=panel_subject(user.id),
+        role=MembershipRole.OWNER,
+    )
+
+    client = APIClient(enforce_csrf_checks=True)
+    client.force_login(user)
+    csrf_response = client.get(reverse("panel-csrf"))
+    response = client.post(
+        reverse("panel-workspace"),
+        {"workspace_id": str(second_workspace.id), "brand_id": str(second_brand.id)},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_response.cookies["csrftoken"].value,
+    )
+
+    assert response.status_code == 200
+    assert response.data["workspace"]["id"] == str(second_workspace.id)
+    assert response.data["selected_brand_id"] == str(second_brand.id)
+    assert str(first_brand.id) not in {item["id"] for item in response.data["brands"]}
 
 
 def test_draft_ingest_token_is_scoped_to_one_brand_and_grants_only_ingest_scopes() -> None:
