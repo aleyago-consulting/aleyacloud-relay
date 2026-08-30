@@ -7,13 +7,17 @@ class HasRelayScope(BasePermission):
     required_scope: str | None = None
 
     def has_permission(self, request, view) -> bool:
-        required_scope = getattr(view, "required_scope", self.required_scope)
+        required_scope = getattr(view, "required_scopes_by_method", {}).get(
+            request.method, getattr(view, "required_scope", self.required_scope)
+        )
         if not request.user.is_authenticated:
             return False
         if required_scope is not None and required_scope not in request.user.scopes:
             return False
 
-        required_roles = getattr(view, "required_roles", None)
+        required_roles = getattr(view, "required_roles_by_method", {}).get(
+            request.method, getattr(view, "required_roles", None)
+        )
         if required_roles is None:
             return True
         return Membership.objects.filter(

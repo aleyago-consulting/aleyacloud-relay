@@ -75,7 +75,10 @@ if not DEBUG:
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
-    "DEFAULT_AUTHENTICATION_CLASSES": ["relay.api.authentication.RelayServiceJWTAuthentication"],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "relay.api.authentication.RelayPanelSessionAuthentication",
+        "relay.api.authentication.RelayServiceJWTAuthentication",
+    ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
 }
 

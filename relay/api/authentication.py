@@ -5,6 +5,8 @@ import jwt
 from django.conf import settings
 from rest_framework import authentication, exceptions
 
+from relay.tenancy.models import Brand, Membership, MembershipRole
+
 
 @dataclass(frozen=True)
 class RelayPrincipal:
@@ -53,3 +55,90 @@ class RelayServiceJWTAuthentication(authentication.BaseAuthentication):
             raise exceptions.AuthenticationFailed("Invalid or expired service credential.") from error
 
         return (principal, payload)
+
+
+def panel_subject(user_id: int) -> str:
+    return f"user:{user_id}"
+
+
+ROLE_SCOPES = {
+    MembershipRole.OWNER: frozenset(
+        {
+            "connections:read",
+            "connections:write",
+            "media:write",
+            "posts:read",
+            "posts:write",
+            "posts:approve",
+            "approvals:write",
+            "publications:read",
+            "publications:write",
+        }
+    ),
+    MembershipRole.MANAGER: frozenset(
+        {
+            "connections:read",
+            "connections:write",
+            "media:write",
+            "posts:read",
+            "posts:write",
+            "posts:approve",
+            "approvals:write",
+            "publications:read",
+            "publications:write",
+        }
+    ),
+    MembershipRole.CONTENT_CREATOR: frozenset(
+        {
+            "connections:read",
+            "media:write",
+            "posts:read",
+            "posts:write",
+            "posts:approve",
+            "approvals:write",
+            "publications:read",
+            "publications:write",
+        }
+    ),
+    MembershipRole.CLIENT_APPROVER: frozenset({"connections:read", "posts:read", "publications:read"}),
+    MembershipRole.VIEWER: frozenset({"connections:read", "posts:read", "publications:read"}),
+}
+
+
+def panel_principal(user, session) -> RelayPrincipal:
+    """Resolve a panel user to one active workspace without trusting browser input."""
+    subject = panel_subject(user.id)
+    memberships = Membership.objects.filter(subject=subject, is_active=True).select_related("workspace")
+    requested_workspace_id = session.get("relay_workspace_id")
+    membership = memberships.filter(workspace_id=requested_workspace_id).first()
+    if membership is None:
+        membership = memberships.order_by("workspace__name").first()
+    if membership is None or not membership.workspace.is_active:
+        raise exceptions.AuthenticationFailed("This user does not have access to a Relay workspace.")
+
+    session["relay_workspace_id"] = str(membership.workspace_id)
+    brand_ids = frozenset(
+        Brand.objects.filter(workspace=membership.workspace, is_active=True).values_list("id", flat=True)
+    )
+    return RelayPrincipal(
+        subject=subject,
+        workspace_id=membership.workspace_id,
+        brand_ids=brand_ids,
+        scopes=ROLE_SCOPES[membership.role],
+    )
+
+
+class RelayPanelSessionAuthentication(authentication.SessionAuthentication):
+    """Authenticated browser session for the Relay React panel.
+
+    SessionAuthentication supplies CSRF enforcement for every mutation; this
+    adapter turns the Django user into the same tenant-scoped principal used by
+    service-to-service API callers.
+    """
+
+    def authenticate(self, request):
+        session_authentication = super().authenticate(request)
+        if session_authentication is None:
+            return None
+        user, _ = session_authentication
+        return (panel_principal(user, request.session), None)

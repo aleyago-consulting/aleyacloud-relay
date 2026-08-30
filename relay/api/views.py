@@ -1,11 +1,19 @@
-from django.shortcuts import get_object_or_404
 from uuid import UUID
+from django.contrib.auth import authenticate, get_user_model, login, logout
+from datetime import timedelta
+from django.db.models import Count
+from django.db.models.functions import TruncDate
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import status
 from rest_framework import exceptions
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from relay.api.authentication import panel_principal
 from relay.api.permissions import HasRelayScope
 from relay.api.serializers import (
     ApprovalDecisionSerializer,
@@ -51,7 +59,7 @@ from relay.social.models import ChannelConnection
 from relay.social.crypto import TokenEncryptionError
 from relay.social.meta import MetaConfigurationError, MetaProviderError
 from relay.social.services import InvalidOAuthState, complete_meta_oauth, start_meta_oauth
-from relay.tenancy.models import Brand, Tenant
+from relay.tenancy.models import Brand, Membership, Tenant
 
 
 class IdempotencyConflictResponse(exceptions.APIException):
@@ -106,9 +114,151 @@ class TenantScopedAPIView(APIView):
         return get_object_or_404(Brand, id=brand_id, workspace=self.get_tenant(), is_active=True)
 
 
+def panel_context(request, *, user=None) -> dict:
+    # DRF replaces ``request._request.user`` with RelayPrincipal after session
+    # authentication. Resolve the original Django user from the session when a
+    # protected panel endpoint calls this helper.
+    if user is None:
+        user_id = request.session.get("_auth_user_id")
+        if user_id is None:
+            raise exceptions.NotAuthenticated()
+        try:
+            user = get_user_model().objects.get(pk=user_id)
+        except get_user_model().DoesNotExist as error:
+            raise exceptions.NotAuthenticated() from error
+
+    principal = panel_principal(user, request.session)
+    workspace = Tenant.objects.get(id=principal.workspace_id, is_active=True)
+    membership = Membership.objects.get(
+        workspace=workspace, subject=principal.subject, is_active=True
+    )
+    user = request._request.user
+    return {
+        "user": {
+            "username": user.get_username(),
+            "display_name": user.get_full_name() or user.get_username(),
+        },
+        "workspace": {"id": str(workspace.id), "name": workspace.name},
+        "role": membership.role,
+        "scopes": sorted(principal.scopes),
+        "brands": [
+            {"id": str(brand.id), "name": brand.name, "timezone": brand.timezone}
+            for brand in Brand.objects.filter(id__in=principal.brand_ids).order_by("name")
+        ],
+    }
+
+
+@method_decorator(ensure_csrf_cookie, name="dispatch")
+class PanelCsrfView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        return Response({"detail": "CSRF cookie ready."})
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PanelLoginView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        username = str(request.data.get("username", "")).strip()
+        password = str(request.data.get("password", ""))
+        user = authenticate(request=request._request, username=username, password=password)
+        if user is None:
+            raise exceptions.AuthenticationFailed("Usuario o contraseña incorrectos.")
+        if not user.is_active:
+            raise exceptions.AuthenticationFailed("Este usuario está desactivado.")
+        login(request._request, user)
+        try:
+            return Response(panel_context(request, user=user))
+        except exceptions.AuthenticationFailed:
+            logout(request._request)
+            raise
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PanelLogoutView(APIView):
+    def post(self, request):
+        logout(request._request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PanelMeView(APIView):
+    def get(self, request):
+        return Response(panel_context(request))
+
+
+class PanelSummaryView(TenantScopedAPIView):
+    required_scope = "posts:read"
+    required_roles = ("OWNER", "MANAGER", "CONTENT_CREATOR", "CLIENT_APPROVER", "VIEWER")
+
+    def get(self, request):
+        tenant = self.get_tenant()
+        publications = Publication.objects.filter(
+            tenant=tenant, brand_id__in=request.user.brand_ids
+        )
+        today = timezone.localdate()
+        start_date = today - timedelta(days=6)
+        activity_by_day = {
+            row["day"].isoformat(): row["count"]
+            for row in publications.filter(created_at__date__gte=start_date)
+            .annotate(day=TruncDate("created_at"))
+            .values("day")
+            .annotate(count=Count("id"))
+        }
+        recent = publications.select_related(
+            "post_variant__post", "channel_connection"
+        ).order_by("-updated_at")[:8]
+        return Response(
+            {
+                "published": publications.filter(state="PUBLISHED").count(),
+                "scheduled": publications.filter(state="SCHEDULED").count(),
+                "failed": publications.filter(state="FAILED").count(),
+                "connections": ChannelConnection.objects.filter(
+                    social_account__tenant=tenant,
+                    social_account__brand_id__in=request.user.brand_ids,
+                    is_active=True,
+                ).count(),
+                "activity": [
+                    {
+                        "date": (start_date + timedelta(days=offset)).isoformat(),
+                        "count": activity_by_day.get((start_date + timedelta(days=offset)).isoformat(), 0),
+                    }
+                    for offset in range(7)
+                ],
+                "recent_publications": [
+                    {
+                        "id": str(publication.id),
+                        "title": publication.post_variant.post.title or publication.post_variant.body[:80],
+                        "state": publication.state,
+                        "scheduled_for": publication.scheduled_for,
+                        "channel": publication.channel_connection.channel,
+                        "account": publication.channel_connection.display_name,
+                    }
+                    for publication in recent
+                ],
+            }
+        )
+
+
 class PostCollectionView(TenantScopedAPIView):
     required_scope = "posts:write"
     required_roles = ("OWNER", "MANAGER", "CONTENT_CREATOR")
+    required_scopes_by_method = {"GET": "posts:read"}
+    required_roles_by_method = {
+        "GET": ("OWNER", "MANAGER", "CONTENT_CREATOR", "CLIENT_APPROVER", "VIEWER")
+    }
+
+    def get(self, request):
+        queryset = Post.objects.filter(
+            tenant=self.get_tenant(), brand_id__in=request.user.brand_ids
+        ).prefetch_related("variants__media_assets")
+        brand_id = request.query_params.get("brand_id")
+        if brand_id:
+            queryset = queryset.filter(brand=self.get_brand(brand_id))
+        return Response(PostSerializer(queryset.order_by("-updated_at")[:100], many=True).data)
 
     def post(self, request):
         idempotency_key = request.headers.get("Idempotency-Key")
@@ -311,6 +461,19 @@ class ApprovalRequestDetailView(TenantScopedAPIView):
 class PublicationCollectionView(TenantScopedAPIView):
     required_scope = "publications:write"
     required_roles = ("OWNER", "MANAGER", "CONTENT_CREATOR")
+    required_scopes_by_method = {"GET": "publications:read"}
+    required_roles_by_method = {
+        "GET": ("OWNER", "MANAGER", "CONTENT_CREATOR", "CLIENT_APPROVER", "VIEWER")
+    }
+
+    def get(self, request):
+        queryset = Publication.objects.filter(
+            tenant=self.get_tenant(), brand_id__in=request.user.brand_ids
+        ).select_related("post_variant__post", "channel_connection")
+        brand_id = request.query_params.get("brand_id")
+        if brand_id:
+            queryset = queryset.filter(brand=self.get_brand(brand_id))
+        return Response(PublicationSerializer(queryset.order_by("-scheduled_for")[:100], many=True).data)
 
     def post(self, request):
         idempotency_key = request.headers.get("Idempotency-Key")

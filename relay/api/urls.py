@@ -15,9 +15,19 @@ from relay.api.views import (
     PostDetailView,
     PublicationCollectionView,
     PublicationDetailView,
+    PanelCsrfView,
+    PanelLoginView,
+    PanelLogoutView,
+    PanelMeView,
+    PanelSummaryView,
 )
 
 urlpatterns = [
+    path("panel/csrf/", PanelCsrfView.as_view(), name="panel-csrf"),
+    path("panel/login/", PanelLoginView.as_view(), name="panel-login"),
+    path("panel/logout/", PanelLogoutView.as_view(), name="panel-logout"),
+    path("panel/me/", PanelMeView.as_view(), name="panel-me"),
+    path("panel/summary/", PanelSummaryView.as_view(), name="panel-summary"),
     path("connections/", ChannelConnectionCollectionView.as_view(), name="channel-connection-collection"),
     path("oauth/meta/start/", MetaOAuthStartView.as_view(), name="meta-oauth-start"),
     path("oauth/meta/callback/", MetaOAuthCallbackView.as_view(), name="meta-oauth-callback"),
