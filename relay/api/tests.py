@@ -1,8 +1,10 @@
 from datetime import timedelta
+from io import StringIO
 
 import jwt
 import pytest
 from django.conf import settings
+from django.core.management import call_command
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -40,6 +42,34 @@ def service_client(tenant: Tenant, brands: list[Brand], scopes: list[str]) -> AP
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
     return client
+
+
+def test_draft_ingest_token_is_scoped_to_one_brand_and_grants_only_ingest_scopes() -> None:
+    tenant = Tenant.objects.create(slug="content-ops", name="Content Operations")
+    allowed_brand = Brand.objects.create(workspace=tenant, slug="allowed", name="Allowed")
+    output = StringIO()
+
+    call_command(
+        "issue_draft_ingest_token",
+        workspace_slug=tenant.slug,
+        brand_slug=allowed_brand.slug,
+        subject="task:content-ingest-allowed",
+        days=7,
+        stdout=output,
+    )
+    token = output.getvalue().strip()
+    payload = jwt.decode(
+        token,
+        settings.RELAY_SERVICE_JWT_SECRET,
+        algorithms=["HS256"],
+        audience=settings.RELAY_SERVICE_JWT_AUDIENCE,
+        issuer=settings.RELAY_SERVICE_JWT_ISSUER,
+    )
+    assert payload["brand_ids"] == [str(allowed_brand.id)]
+    assert payload["scopes"] == ["media:write", "posts:write"]
+    assert "posts:approve" not in payload["scopes"]
+    assert "publications:write" not in payload["scopes"]
+    assert Membership.objects.get(workspace=tenant, subject="task:content-ingest-allowed").role == MembershipRole.CONTENT_CREATOR
 
 
 def test_post_creation_is_tenant_scoped_and_idempotent() -> None:
